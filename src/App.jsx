@@ -231,22 +231,21 @@ export default function LifeOrg(){
   },[]);
 
   // ── Storage ───────────────────────────────────────────────────────────────
-  useEffect(()=>{
-    (async()=>{
-      try{const r=await window.storage.get(SK.events);    if(r?.value)setEvents(JSON.parse(r.value));}catch(_){}
-      try{const r=await window.storage.get(SK.garden,true);if(r?.value)setGardenJobs(JSON.parse(r.value));}catch(_){}
-      try{const r=await window.storage.get(SK.notes);     if(r?.value)setNotes(JSON.parse(r.value));}catch(_){}
-      try{const r=await window.storage.get(SK.birthdays); if(r?.value)setBirthdays(JSON.parse(r.value));}catch(_){}
-      try{const r=await window.storage.get(SK.settings);  if(r?.value)setSettings(JSON.parse(r.value));}catch(_){}
-      try{const r=await window.storage.get(SK.terms);     if(r?.value)setTerms(JSON.parse(r.value));}catch(_){}
-      setLoaded(true);
-    })();
+useEffect(()=>{
+  try{const r=localStorage.getItem(SK.events);    if(r)setEvents(JSON.parse(r));}catch(_){}
+  try{const r=localStorage.getItem(SK.garden);    if(r)setGardenJobs(JSON.parse(r));}catch(_){}
+  try{const r=localStorage.getItem(SK.notes);     if(r)setNotes(JSON.parse(r));}catch(_){}
+  try{const r=localStorage.getItem(SK.birthdays); if(r)setBirthdays(JSON.parse(r));}catch(_){}
+  try{const r=localStorage.getItem(SK.settings);  if(r)setSettings(JSON.parse(r));}catch(_){}
+  try{const r=localStorage.getItem(SK.terms);     if(r)setTerms(JSON.parse(r));}catch(_){}
+  setLoaded(true);
+},[]);
   },[]);
-  useEffect(()=>{if(!loaded)return;window.storage.set(SK.events,    JSON.stringify(events)).catch(()=>{});},[events,loaded]);
-  useEffect(()=>{if(!loaded)return;window.storage.set(SK.notes,     JSON.stringify(notes)).catch(()=>{});},[notes,loaded]);
-  useEffect(()=>{if(!loaded)return;window.storage.set(SK.birthdays, JSON.stringify(birthdays)).catch(()=>{});},[birthdays,loaded]);
-  useEffect(()=>{if(!loaded)return;window.storage.set(SK.settings,  JSON.stringify(settings)).catch(()=>{});},[settings,loaded]);
-  useEffect(()=>{if(!loaded)return;window.storage.set(SK.terms,     JSON.stringify(terms)).catch(()=>{});},[terms,loaded]);
+  useEffect(()=>{if(!loaded)return;localStorage.setItem(SK.events,    JSON.stringify(events));},[events,loaded]);
+  useEffect(()=>{if(!loaded)return;localStorage.setItem(SK.notes,     JSON.stringify(notes));},[notes,loaded]);
+  useEffect(()=>{if(!loaded)return;localStorage.setItem(SK.birthdays, JSON.stringify(birthdays));},[birthdays,loaded]);
+  useEffect(()=>{if(!loaded)return;localStorage.setItem(SK.settings,  JSON.stringify(settings));},[settings,loaded]);
+  useEffect(()=>{if(!loaded)return;localStorage.setItem(SK.terms,     JSON.stringify(terms));},[terms,loaded]);
 
   // ── Derived ───────────────────────────────────────────────────────────────
   const MEMBERS_ALL=useMemo(()=>[{id:"all",name:"Everyone",color:APP_COLOR,emoji:"👨‍👩‍👧‍👦",type:"family"},...settings.members],[settings.members]);
