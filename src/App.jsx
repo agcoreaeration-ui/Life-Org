@@ -467,7 +467,300 @@ function SettingsView({settings,setSettings,terms,setTerms,onExport,showToast}){
 }
 
 // ─────────────────────────────────────────────────────────────────────────────
-// MAIN COMPONENT
+// DESKTOP COMPONENTS
+// ─────────────────────────────────────────────────────────────────────────────
+
+function useWindowWidth(){
+  const [width,setWidth]=useState(window.innerWidth);
+  useEffect(()=>{
+    const h=()=>setWidth(window.innerWidth);
+    window.addEventListener("resize",h);
+    return()=>window.removeEventListener("resize",h);
+  },[]);
+  return width;
+}
+
+function DesktopSidebar({view,setView,openAdd,petMember,bdBadge,syncing,refreshData,familyName}){
+  const NAV=[
+    {id:"week",     icon:"📅", label:"Calendar"},
+    {id:"notes",    icon:"📝", label:"Notes"},
+    {id:"marley",   icon:petMember?.emoji||"🐾", label:petMember?.name||"Marley"},
+    {id:"birthdays",icon:"🎂", label:"Birthdays", badge:bdBadge},
+    {id:"settings", icon:"⚙️", label:"Settings"},
+  ];
+  return(
+    <div style={{width:220,flexShrink:0,background:"linear-gradient(160deg,#4f46e5,#7c3aed)",minHeight:"100vh",display:"flex",flexDirection:"column",padding:"24px 0"}}>
+      {/* Logo */}
+      <div style={{padding:"0 20px 28px"}}>
+        <div style={{fontSize:10,fontWeight:700,letterSpacing:3,color:"rgba(255,255,255,0.5)",textTransform:"uppercase",marginBottom:6}}>Life, organised.</div>
+        <div style={{fontSize:22,fontWeight:800,color:"#fff",letterSpacing:"-0.3px"}}><span style={{opacity:0.5}}>✦ </span>Life Org</div>
+        {familyName&&<div style={{fontSize:12,color:"rgba(255,255,255,0.5)",marginTop:4}}>{familyName}</div>}
+      </div>
+
+      {/* Add button */}
+      <div style={{padding:"0 16px 24px"}}>
+        <button onClick={openAdd} style={{width:"100%",background:"rgba(255,255,255,0.15)",border:"1.5px solid rgba(255,255,255,0.3)",color:"#fff",borderRadius:12,padding:"11px",fontSize:14,fontWeight:700,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:8}}>
+          <span style={{fontSize:18}}>+</span> Add Event
+        </button>
+      </div>
+
+      {/* Nav */}
+      <div style={{flex:1,display:"flex",flexDirection:"column",gap:2,padding:"0 10px"}}>
+        {NAV.map(tab=>{
+          const active=view===tab.id;
+          return(
+            <button key={tab.id} onClick={()=>setView(tab.id)} style={{
+              display:"flex",alignItems:"center",gap:12,padding:"11px 14px",
+              background:active?"rgba(255,255,255,0.2)":"transparent",
+              border:"none",borderRadius:10,cursor:"pointer",width:"100%",textAlign:"left",
+              transition:"background 0.15s"
+            }}>
+              <div style={{position:"relative",width:22,textAlign:"center"}}>
+                <span style={{fontSize:18}}>{tab.icon}</span>
+                {tab.badge&&<span style={{position:"absolute",top:-2,right:-4,width:8,height:8,borderRadius:"50%",background:"#f43f5e",border:"1.5px solid #7c3aed"}}/>}
+              </div>
+              <span style={{fontSize:14,fontWeight:active?700:500,color:active?"#fff":"rgba(255,255,255,0.65)"}}>{tab.label}</span>
+              {active&&<span style={{marginLeft:"auto",width:4,height:4,borderRadius:"50%",background:"#fff"}}/>}
+            </button>
+          );
+        })}
+      </div>
+
+      {/* Refresh */}
+      <div style={{padding:"16px 16px 0"}}>
+        <button onClick={refreshData} style={{width:"100%",background:"rgba(255,255,255,0.08)",border:"none",color:"rgba(255,255,255,0.5)",borderRadius:10,padding:"9px",fontSize:12,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",justifyContent:"center",gap:6}}>
+          <span style={{fontSize:14,display:"inline-block",transition:"transform 0.5s",transform:syncing?"rotate(360deg)":"none"}}>{syncing?"⏳":"🔄"}</span>
+          {syncing?"Syncing...":"Sync now"}
+        </button>
+      </div>
+    </div>
+  );
+}
+
+function WeekGrid({weekDays,eventsByDay,gardenByDay,filterMember,termForDay,terms,members,expandedEv,setExpandedEv,openAdd,openEdit,confirmDelete,today,upcomingBds,weekOffset,setWeekOffset,weekLabel,memberCounts,setShareMode,syncing,refreshData}){
+  const MEMBERS_ALL=[{id:"all",name:"Everyone",color:APP_COLOR,emoji:"👨‍👩‍👧‍👦",type:"family"},...members];
+  const getType=id=>TASK_TYPES.find(t=>t.id===id);
+
+  return(
+    <div style={{flex:1,display:"flex",flexDirection:"column",minHeight:0,overflow:"hidden"}}>
+      {/* Top bar */}
+      <div style={{background:"#fff",borderBottom:"1px solid #f3f4f6",padding:"14px 24px",display:"flex",alignItems:"center",justifyContent:"space-between",flexShrink:0}}>
+        <div style={{display:"flex",alignItems:"center",gap:16}}>
+          <div style={{display:"flex",alignItems:"center",gap:8}}>
+            <button onClick={()=>setWeekOffset(o=>o-1)} style={{background:"#f3f4f6",border:"none",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",color:"#374151"}}>‹</button>
+            <div style={{textAlign:"center",minWidth:200}}>
+              <div style={{fontSize:12,color:"#9ca3af",fontWeight:500}}>{weekOffset===0?"This Week":weekOffset===1?"Next Week":weekOffset===-1?"Last Week":""}</div>
+              <div style={{fontSize:15,fontWeight:700,color:"#1f1535"}}>{weekLabel}</div>
+            </div>
+            <button onClick={()=>setWeekOffset(o=>o+1)} style={{background:"#f3f4f6",border:"none",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:16,display:"flex",alignItems:"center",justifyContent:"center",color:"#374151"}}>›</button>
+          </div>
+          <button onClick={()=>setWeekOffset(0)} style={{background:"#f3f4f6",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:12,fontWeight:600,color:"#374151"}}>Today</button>
+        </div>
+        <div style={{display:"flex",alignItems:"center",gap:10}}>
+          <button onClick={refreshData} style={{background:"#f3f4f6",border:"none",borderRadius:8,width:32,height:32,cursor:"pointer",fontSize:14,display:"flex",alignItems:"center",justifyContent:"center"}} title="Refresh">{syncing?"⏳":"🔄"}</button>
+          <button onClick={()=>setShareMode(true)} style={{background:"#f3f4ff",border:"none",borderRadius:8,padding:"6px 12px",fontSize:12,fontWeight:700,color:APP_COLOR,cursor:"pointer"}}>📤 Share</button>
+        </div>
+      </div>
+
+      {/* Birthday ribbon */}
+      {upcomingBds.length>0&&(
+        <div style={{background:"linear-gradient(135deg,#fef3c7,#fde68a)",padding:"8px 24px",borderBottom:"1px solid #fcd34d",flexShrink:0}}>
+          <span style={{fontSize:12,fontWeight:800,color:"#92400e"}}>🎂 {upcomingBds.map(b=>b.title).join("  ·  ")}</span>
+        </div>
+      )}
+
+      {/* 7-column grid */}
+      <div style={{flex:1,display:"grid",gridTemplateColumns:"repeat(7,1fr)",overflow:"hidden",gap:0}}>
+        {weekDays.map((day,di)=>{
+          const ds=fmt(day);
+          const termIdx=termForDay(ds);
+          const termBg=termIdx>=0?TERM_COLORS[termIdx%4]:null;
+          const ph=VIC_HOLIDAYS[ds];
+          const dayEvs=eventsByDay[ds]||[];
+          const dayJobs=filterMember==="all"?gardenByDay[ds]||[]:[];
+          const isToday=ds===today;
+          const isWeekend=di>=5;
+          return(
+            <div key={ds} style={{
+              display:"flex",flexDirection:"column",
+              borderRight:di<6?"1px solid #f3f4f6":"none",
+              background:isToday?"#fafaff":isWeekend?"#fafafa":termBg||"#fff",
+              minHeight:0,overflow:"hidden"
+            }}>
+              {/* Day header */}
+              <div onClick={()=>openAdd(ds)} style={{
+                padding:"10px 8px 8px",borderBottom:"1px solid #f3f4f6",
+                cursor:"pointer",flexShrink:0,
+                background:isToday?"linear-gradient(135deg,#4f46e5,#7c3aed)":isWeekend?"#f9fafb":"#fff"
+              }}>
+                <div style={{fontSize:10,fontWeight:700,color:isToday?"rgba(255,255,255,0.8)":isWeekend?"#9ca3af":"#6b7280",textTransform:"uppercase",letterSpacing:0.5,marginBottom:2}}>
+                  {day.toLocaleDateString("en-AU",{weekday:"short"})}
+                </div>
+                <div style={{fontSize:20,fontWeight:800,color:isToday?"#fff":isWeekend?"#9ca3af":"#1f1535",lineHeight:1}}>
+                  {day.getDate()}
+                </div>
+                {ph&&<div style={{fontSize:9,color:isToday?"rgba(255,255,255,0.8)":"#dc2626",fontWeight:700,marginTop:2,lineHeight:1.2}}>{ph}</div>}
+                {termIdx>=0&&!isToday&&<div style={{fontSize:9,color:TERM_TEXT_COLORS[termIdx%4],fontWeight:700,marginTop:1}}>{terms[termIdx]?.label}</div>}
+              </div>
+
+              {/* Events in this column */}
+              <div style={{flex:1,overflowY:"auto",padding:"4px 4px"}}>
+                {dayEvs.length===0&&dayJobs.length===0&&(
+                  <div onClick={()=>openAdd(ds)} style={{height:"100%",minHeight:60,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",opacity:0}}>
+                    <span style={{fontSize:18,color:"#d1d5db"}}>+</span>
+                  </div>
+                )}
+                {dayEvs.map(ev=>{
+                  const type=getType(ev.type);
+                  const isBd=ev.isBirthday;
+                  const evMs=ev.members.includes("all")?members:ev.members.map(id=>MEMBERS_ALL.find(m=>m.id===id)).filter(Boolean);
+                  const borderColor=isBd?"#f43f5e":evMs.length===1?evMs[0].color:(type?.color||APP_COLOR);
+                  const exp=expandedEv===ev.id+ds;
+                  return(
+                    <div key={ev.id} onClick={()=>setExpandedEv(exp?null:ev.id+ds)} style={{
+                      background:"#fff",borderRadius:6,marginBottom:3,padding:"5px 7px",
+                      borderLeft:`3px solid ${borderColor}`,
+                      boxShadow:"0 1px 2px rgba(0,0,0,0.06)",cursor:"pointer",
+                      fontSize:11,lineHeight:1.3
+                    }}>
+                      <div style={{fontWeight:700,color:"#1f1535",marginBottom:1,display:"flex",alignItems:"center",gap:3}}>
+                        <span style={{fontSize:12}}>{isBd?"🎂":type?.emoji}</span>
+                        <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</span>
+                      </div>
+                      {!ev.allDay&&ev.startTime&&<div style={{color:"#6b7280",fontSize:10}}>{fmtTime(ev.startTime)}</div>}
+                      <div style={{display:"flex",marginTop:2}}>{evMs.slice(0,3).map(m=><span key={m.id} style={{fontSize:10,marginRight:-2}}>{m.emoji}</span>)}</div>
+                      {exp&&!isBd&&(
+                        <div style={{marginTop:6,paddingTop:6,borderTop:"1px solid #f3f4f6",display:"flex",gap:4}}>
+                          <button onClick={e=>{e.stopPropagation();openEdit(ev);}} style={{background:"#f3f4ff",border:"none",borderRadius:5,color:APP_COLOR,fontSize:10,fontWeight:700,padding:"3px 8px",cursor:"pointer"}}>✏️</button>
+                          <button onClick={e=>{e.stopPropagation();confirmDelete(ev.id,ev.title);}} style={{background:"#fef2f2",border:"none",borderRadius:5,color:"#ef4444",fontSize:10,fontWeight:700,padding:"3px 8px",cursor:"pointer"}}>🗑</button>
+                        </div>
+                      )}
+                    </div>
+                  );
+                })}
+                {dayJobs.map(job=>{
+                  const SC={scheduled:"#16a34a","in-progress":"#f59e0b",completed:"#10b981",pending:"#6b7280"};
+                  return(
+                    <div key={job.id} style={{background:"#f0fdf4",borderRadius:6,marginBottom:3,padding:"5px 7px",borderLeft:"3px solid #16a34a",fontSize:11}}>
+                      <div style={{fontWeight:700,color:"#14532d",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap",display:"flex",alignItems:"center",gap:3}}>
+                        <span>🌿</span><span>{job.title||"Garden Job"}</span>
+                      </div>
+                      <div style={{color:"#166534",fontSize:10,marginTop:1}}>👤 {job.client}</div>
+                    </div>
+                  );
+                })}
+              </div>
+            </div>
+          );
+        })}
+      </div>
+    </div>
+  );
+}
+
+function DesktopRightPanel({settings,memberCounts,upcomingBds,gardenJobs,allEvents,birthdays,today}){
+  const upcoming=useMemo(()=>[...allEvents].filter(ev=>ev.date>=today).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,8),[allEvents,today]);
+  const upcomingJobs=useMemo(()=>gardenJobs.filter(j=>j.scheduledDate>=today).sort((a,b)=>a.scheduledDate.localeCompare(b.scheduledDate)).slice(0,5),[gardenJobs,today]);
+  const bdList=useMemo(()=>{
+    const y=new Date().getFullYear();
+    return birthdays.map(bd=>{
+      if(!bd.dob)return null;
+      const mmdd=bd.dob.slice(5);
+      const ty=`${y}-${mmdd}`;
+      const next=ty<today?`${y+1}-${mmdd}`:ty;
+      const away=Math.round((parseDate(next)-new Date())/86400000);
+      return{...bd,next,away};
+    }).filter(Boolean).sort((a,b)=>a.away-b.away).slice(0,5);
+  },[birthdays,today]);
+  const getType=id=>TASK_TYPES.find(t=>t.id===id);
+
+  function Section({title,children,empty,emptyMsg}){
+    return(
+      <div style={{marginBottom:20}}>
+        <div style={{fontSize:11,fontWeight:800,color:"#6b7280",letterSpacing:1,textTransform:"uppercase",marginBottom:10}}>{title}</div>
+        {empty?<div style={{fontSize:12,color:"#d1d5db",fontStyle:"italic",padding:"8px 0"}}>{emptyMsg}</div>:children}
+      </div>
+    );
+  }
+
+  return(
+    <div style={{width:260,flexShrink:0,background:"#fff",borderLeft:"1px solid #f3f4f6",overflowY:"auto",padding:"20px 16px"}}>
+
+      {/* Family summary */}
+      <Section title="👨‍👩‍👧‍👦 This week">
+        <div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:6,marginBottom:4}}>
+          {settings.members.map(m=>(
+            <div key={m.id} style={{background:m.color+"10",borderRadius:10,padding:"8px 10px",display:"flex",alignItems:"center",gap:8}}>
+              <span style={{fontSize:18}}>{m.emoji}</span>
+              <div>
+                <div style={{fontSize:11,fontWeight:700,color:"#374151"}}>{m.name}</div>
+                <div style={{fontSize:17,fontWeight:800,color:m.color,lineHeight:1}}>{memberCounts[m.id]||0}</div>
+              </div>
+            </div>
+          ))}
+        </div>
+      </Section>
+
+      {/* Upcoming events */}
+      <Section title="📅 Upcoming" empty={!upcoming.length} emptyMsg="No upcoming events">
+        {upcoming.map(ev=>{
+          const type=getType(ev.type);
+          const away=Math.round((parseDate(ev.date)-new Date())/86400000);
+          return(
+            <div key={ev.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"7px 0",borderBottom:"1px solid #f9fafb"}}>
+              <span style={{fontSize:16,flexShrink:0}}>{ev.isBirthday?"🎂":type?.emoji}</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#1f1535",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</div>
+                <div style={{fontSize:10,color:"#9ca3af"}}>{parseDate(ev.date).toLocaleDateString("en-AU",{weekday:"short",day:"numeric",month:"short"})}{ev.startTime&&` · ${fmtTime(ev.startTime)}`}</div>
+              </div>
+              <span style={{fontSize:10,fontWeight:700,color:away===0?"#ef4444":away<=3?"#f59e0b":"#9ca3af",flexShrink:0}}>
+                {away===0?"Today":away===1?"Tmrw":`${away}d`}
+              </span>
+            </div>
+          );
+        })}
+      </Section>
+
+      {/* Birthdays */}
+      <Section title="🎂 Birthdays" empty={!bdList.length} emptyMsg="No birthdays saved">
+        {bdList.map(bd=>(
+          <div key={bd.id} style={{display:"flex",alignItems:"center",gap:8,padding:"6px 0",borderBottom:"1px solid #f9fafb"}}>
+            <span style={{fontSize:18}}>🎂</span>
+            <div style={{flex:1}}>
+              <div style={{fontSize:12,fontWeight:700,color:"#1f1535"}}>{bd.name}</div>
+              <div style={{fontSize:10,color:"#9ca3af"}}>{parseDate(bd.dob).toLocaleDateString("en-AU",{day:"numeric",month:"short"})}</div>
+            </div>
+            <span style={{fontSize:10,fontWeight:800,color:bd.away<=7?"#f43f5e":bd.away<=30?"#f59e0b":"#9ca3af",flexShrink:0}}>
+              {bd.away===0?"🎉 Today!":bd.away===1?"Tmrw":`${bd.away}d`}
+            </span>
+          </div>
+        ))}
+      </Section>
+
+      {/* Garden Ops jobs */}
+      <Section title="🌿 Garden Ops" empty={!upcomingJobs.length} emptyMsg="No upcoming jobs">
+        {upcomingJobs.map(job=>{
+          const away=Math.round((parseDate(job.scheduledDate)-new Date())/86400000);
+          const SC={scheduled:"#16a34a","in-progress":"#f59e0b",completed:"#10b981",pending:"#6b7280"};
+          return(
+            <div key={job.id} style={{display:"flex",alignItems:"flex-start",gap:8,padding:"7px 0",borderBottom:"1px solid #f9fafb"}}>
+              <span style={{fontSize:16,flexShrink:0}}>🌿</span>
+              <div style={{flex:1,minWidth:0}}>
+                <div style={{fontSize:12,fontWeight:700,color:"#14532d",overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{job.title}</div>
+                <div style={{fontSize:10,color:"#9ca3af"}}>👤 {job.client}</div>
+              </div>
+              <span style={{fontSize:10,fontWeight:700,color:away===0?"#ef4444":away<=3?"#f59e0b":"#16a34a",flexShrink:0}}>
+                {away===0?"Today":away===1?"Tmrw":`${away}d`}
+              </span>
+            </div>
+          );
+        })}
+      </Section>
+
+    </div>
+  );
+}
+
 // ─────────────────────────────────────────────────────────────────────────────
 export default function LifeOrg(){
   const [events,       setEvents]       = useState(SEED_EVENTS);
@@ -640,6 +933,8 @@ export default function LifeOrg(){
     showToast("📅 Calendar exported!");
   }
 
+  const windowWidth=useWindowWidth();
+  const isDesktop=windowWidth>=768;
   const isEdit=!!editingId;
   const totalWeekEvents=weekDays.reduce((s,d)=>{const ds=fmt(d);return s+(eventsByDay[ds]||[]).length+(filterMember==="all"?(gardenByDay[ds]||[]).length:0);},0);
 
@@ -750,12 +1045,139 @@ export default function LifeOrg(){
     </div>
   );}
 
+  // ── Shared modals (used by both layouts) ─────────────────────────────────
+  const Modals = <>
+    <DeleteModal item={deleteConfirm} onCancel={()=>setDeleteConfirm(null)} onConfirm={doDelete}/>
+    {showBdForm&&bdForm&&<BdModal bdForm={bdForm} setBdForm={setBdForm} onClose={()=>{setShowBdForm(false);setBdForm(null);}} onSave={saveBirthday} members={settings.members}/>}
+    {toast&&<div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",background:"#1f1535",color:"#fff",borderRadius:12,padding:"10px 20px",fontSize:14,fontWeight:700,zIndex:200,boxShadow:"0 4px 16px rgba(0,0,0,0.2)",whiteSpace:"nowrap"}}>{toast}</div>}
+  </>;
+
+  // ── DESKTOP LAYOUT ────────────────────────────────────────────────────────
+  if(isDesktop){
+    // On desktop the add/edit form slides in as a right overlay panel
+    const showAddPanel=view==="add";
+    return(
+      <div style={{fontFamily:"'Inter',system-ui,sans-serif",display:"flex",height:"100vh",overflow:"hidden",background:"#f8f7ff"}}>
+        {Modals}
+
+        {/* Left sidebar */}
+        <DesktopSidebar
+          view={view} setView={setView} openAdd={openAdd}
+          petMember={petMember} bdBadge={bdBadge}
+          syncing={syncing} refreshData={refreshData}
+          familyName={settings.familyName}
+        />
+
+        {/* Main content */}
+        <div style={{flex:1,display:"flex",flexDirection:"column",overflow:"hidden",position:"relative"}}>
+
+          {/* Calendar grid — always visible on desktop */}
+          {(view==="week"||view==="add")&&(
+            <WeekGrid
+              weekDays={weekDays} eventsByDay={eventsByDay}
+              gardenByDay={gardenByDay} filterMember={filterMember}
+              termForDay={termForDay} terms={terms}
+              members={settings.members}
+              expandedEv={expandedEv} setExpandedEv={setExpandedEv}
+              openAdd={openAdd} openEdit={openEdit} confirmDelete={confirmDelete}
+              today={today} upcomingBds={upcomingBds}
+              weekOffset={weekOffset} setWeekOffset={setWeekOffset}
+              weekLabel={weekLabel} memberCounts={memberCounts}
+              setShareMode={setShareMode} syncing={syncing} refreshData={refreshData}
+            />
+          )}
+
+          {/* Other views */}
+          {view==="notes"     &&<div style={{flex:1,overflowY:"auto"}}><NotesView notes={notes} setNotes={setNotes} onDeleteNote={deleteNote}/></div>}
+          {view==="marley"    &&<div style={{flex:1,overflowY:"auto"}}><MarleyView allEvents={allEvents} petMember={petMember} setView={setView} setForm={setForm}/></div>}
+          {view==="birthdays" &&<div style={{flex:1,overflowY:"auto"}}><BirthdaysView birthdays={birthdays} setBirthdays={setBirthdays} upcomingBds={upcomingBds} setBdForm={setBdForm} setShowBdForm={setShowBdForm} onDeleteBirthday={deleteBirthday}/></div>}
+          {view==="settings"  &&<div style={{flex:1,overflowY:"auto"}}><SettingsView settings={settings} setSettings={setSettings} terms={terms} setTerms={setTerms} onExport={handleExport} showToast={showToast}/></div>}
+
+          {/* Add/edit slide-in panel — renders same form as mobile */}
+          {showAddPanel&&(
+            <div style={{position:"absolute",top:0,right:0,width:440,height:"100%",background:"#fff",boxShadow:"-4px 0 24px rgba(0,0,0,0.1)",zIndex:20,overflowY:"auto",borderLeft:"1px solid #f3f4f6"}}>
+              <div style={{padding:"16px 24px 14px",display:"flex",alignItems:"center",justifyContent:"space-between",borderBottom:"1px solid #f3f4f6",position:"sticky",top:0,background:"#fff",zIndex:1}}>
+                <div style={{display:"flex",alignItems:"center",gap:10}}>
+                  {step>1&&!isEdit&&<button onClick={()=>setStep(s=>s-1)} style={{background:"#f3f4f6",border:"none",borderRadius:8,padding:"6px 10px",cursor:"pointer",fontSize:14}}>←</button>}
+                  <div style={{fontSize:16,fontWeight:800,color:"#1f1535"}}>{isEdit?"Edit Event":"New Event"}</div>
+                  {isEdit&&<span style={{fontSize:11,fontWeight:700,color:APP_COLOR,background:"#f3f4ff",borderRadius:6,padding:"2px 8px"}}>Editing</span>}
+                </div>
+                <button onClick={()=>{setView("week");setForm(blankForm());setEditingId(null);}} style={{background:"#f3f4f6",border:"none",borderRadius:8,padding:"6px 12px",cursor:"pointer",fontSize:13,fontWeight:600,color:"#374151"}}>✕</button>
+              </div>
+              <div style={{padding:"0 4px 8px"}}>
+                <div style={{padding:"10px 20px 0",display:"flex",gap:5}}>{[1,2,3].map(s=><div key={s} style={{flex:1,height:3,borderRadius:4,background:s<=step?APP_COLOR:"#e5e7eb"}}/>)}</div>
+                <div style={{padding:"0 16px 24px"}}>
+                  {step===1&&(
+                    <>
+                      <div style={{fontSize:16,fontWeight:800,color:"#1f1535",marginTop:16,marginBottom:4}}>What type of event?</div>
+                      <div style={{fontSize:12,color:"#6b7280",marginBottom:14}}>Choose a category</div>
+                      <div style={{display:"grid",gridTemplateColumns:"1fr 1fr 1fr",gap:8}}>
+                        {TASK_TYPES.map(tp=>(
+                          <button key={tp.id} onClick={()=>{setForm(f=>({...f,type:tp.id,title:"",members:tp.id==="pet"&&petMember?[petMember.id]:[]}));setStep(tp.id==="birthday"?3:2);}} style={{background:"#fff",border:`2px solid ${form.type===tp.id?tp.color:"#e5e7eb"}`,borderRadius:12,padding:"12px 6px",cursor:"pointer",textAlign:"center",boxShadow:"0 1px 3px rgba(0,0,0,0.05)"}}>
+                            <div style={{fontSize:22,marginBottom:4}}>{tp.emoji}</div>
+                            <div style={{fontSize:10,fontWeight:700,color:"#374151",lineHeight:1.2}}>{tp.label}</div>
+                          </button>
+                        ))}
+                      </div>
+                    </>
+                  )}
+                  {step===2&&form.type&&(
+                    <>
+                      <div style={{fontSize:16,fontWeight:800,color:"#1f1535",marginTop:16,marginBottom:14}}>{TASK_TYPES.find(t=>t.id===form.type)?.emoji} {TASK_TYPES.find(t=>t.id===form.type)?.label}</div>
+                      <div style={{display:"flex",flexDirection:"column",gap:7}}>
+                        {PRESET_TASKS[form.type]?.map(p=>(
+                          <button key={p} onClick={()=>{setForm(f=>({...f,title:p,customTitle:false}));setStep(3);}} style={{background:"#fff",border:"1.5px solid #e5e7eb",borderRadius:10,padding:"11px 14px",cursor:"pointer",textAlign:"left",fontSize:13,fontWeight:600,color:"#1f1535",display:"flex",alignItems:"center",justifyContent:"space-between"}}>{p}<span style={{color:"#d1d5db"}}>›</span></button>
+                        ))}
+                        <button onClick={()=>{setForm(f=>({...f,title:"",customTitle:true}));setStep(3);}} style={{background:"linear-gradient(135deg,#f3f4ff,#faf5ff)",border:"1.5px dashed #a5b4fc",borderRadius:10,padding:"11px 14px",cursor:"pointer",textAlign:"left",fontSize:13,fontWeight:600,color:APP_COLOR}}>✏️ Type my own...</button>
+                      </div>
+                    </>
+                  )}
+                  {step===3&&(
+                    <div style={{marginTop:16}}>
+                      {form.type==="birthday"?(
+                        <>
+                          <div style={{marginBottom:14}}><label style={s_lbl}>Whose birthday?</label><input value={form.bdName} onChange={e=>setForm(f=>({...f,bdName:e.target.value}))} placeholder="e.g. Uncle Luke" style={s_inp}/></div>
+                          <div style={{marginBottom:14}}><label style={s_lbl}>Date of birth</label><input type="date" value={form.bdDob} onChange={e=>setForm(f=>({...f,bdDob:e.target.value}))} style={s_inp}/>{form.bdName&&form.bdDob&&<div style={{marginTop:6,background:"#fdf2f8",borderRadius:8,padding:"8px 12px",border:"1px solid #fbcfe8",fontSize:12,color:"#9d174d",fontWeight:600}}>{getBdTitle({name:form.bdName,dob:form.bdDob},new Date().getFullYear())}<div style={{fontSize:10,color:"#6b7280",marginTop:2,fontWeight:400}}>🔁 Repeats yearly</div></div>}</div>
+                          <div style={{marginBottom:14}}><label style={s_lbl}>Relationship</label><div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{[{id:"family",l:"Family",e:"🏠"},{id:"friend",l:"Friend",e:"👥"},{id:"work",l:"Work",e:"💼"},{id:"other",l:"Other",e:"📌"}].map(c=><button key={c.id} onClick={()=>setForm(f=>({...f,bdCategory:c.id}))} style={{background:form.bdCategory===c.id?"#f43f5e":"#fff",color:form.bdCategory===c.id?"#fff":"#374151",border:`1.5px solid ${form.bdCategory===c.id?"#f43f5e":"#e5e7eb"}`,borderRadius:20,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>{c.e} {c.l}</button>)}</div></div>
+                          <div style={{marginBottom:20}}><label style={s_lbl}>Notes (optional)</label><input value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="e.g. Surprise party!" style={s_inp}/></div>
+                          <button onClick={submitEvent} disabled={!form.bdName||!form.bdDob} style={{width:"100%",background:(!form.bdName||!form.bdDob)?"#e5e7eb":"linear-gradient(135deg,#f43f5e,#e11d48)",color:(!form.bdName||!form.bdDob)?"#9ca3af":"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer"}}>Save Birthday 🎂</button>
+                        </>
+                      ):(
+                        <>
+                          {(form.customTitle||isEdit)?<div style={{marginBottom:14}}><label style={s_lbl}>Title</label><input value={form.title} onChange={e=>setForm(f=>({...f,title:e.target.value}))} placeholder="Event name" style={s_inp}/></div>
+                            :<div style={{background:"#f3f4f6",borderRadius:8,padding:"9px 12px",marginBottom:14,display:"flex",alignItems:"center",gap:8}}><span style={{fontSize:18}}>{TASK_TYPES.find(t=>t.id===form.type)?.emoji}</span><span style={{fontSize:14,fontWeight:700,color:"#1f1535"}}>{form.title}</span></div>}
+                          <div style={{marginBottom:14}}><label style={s_lbl}>Who's involved?</label><div style={{display:"flex",gap:7,flexWrap:"wrap"}}>{[{id:"all",name:"Everyone",color:APP_COLOR,emoji:"👨‍👩‍👧‍👦"},...settings.members].map(m=>{const sel=form.members.includes(m.id);return<button key={m.id} onClick={()=>toggleMember(m.id)} style={{background:sel?m.color:"#fff",color:sel?"#fff":"#374151",border:`2px solid ${sel?m.color:"#e5e7eb"}`,borderRadius:20,padding:"6px 11px",cursor:"pointer",fontSize:12,fontWeight:600,display:"flex",alignItems:"center",gap:3}}>{m.emoji} {m.name}</button>;})}</div></div>
+                          <div style={{marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fff",borderRadius:10,padding:"10px 14px",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}><div><div style={{fontSize:13,fontWeight:700,color:"#1f1535"}}>All day</div><div style={{fontSize:10,color:"#9ca3af"}}>No time needed</div></div><button onClick={()=>setForm(f=>({...f,allDay:!f.allDay,startTime:"",endTime:""}))} style={{width:40,height:24,borderRadius:12,border:"none",cursor:"pointer",background:form.allDay?APP_COLOR:"#e5e7eb",position:"relative",flexShrink:0}}><span style={{position:"absolute",top:3,left:form.allDay?18:3,width:18,height:18,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/></button></div>
+                          <div style={{marginBottom:14}}><label style={s_lbl}>Date</label><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><div><div style={{fontSize:10,color:"#9ca3af",marginBottom:3,fontWeight:600}}>Start</div><input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value,endDate:e.target.value>f.endDate?e.target.value:f.endDate}))} style={s_inp}/></div><div><div style={{fontSize:10,color:"#9ca3af",marginBottom:3,fontWeight:600}}>End</div><input type="date" value={form.endDate} min={form.date} onChange={e=>setForm(f=>({...f,endDate:e.target.value}))} style={s_inp}/></div></div>{form.date!==form.endDate&&<div style={{fontSize:11,color:APP_COLOR,fontWeight:600,marginTop:4}}>📆 {Math.round((parseDate(form.endDate)-parseDate(form.date))/86400000)+1} days</div>}</div>
+                          {!form.allDay&&<div style={{marginBottom:14}}><label style={s_lbl}>Time</label><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><div><div style={{fontSize:10,color:"#9ca3af",marginBottom:3,fontWeight:600}}>Start</div><input type="time" value={form.startTime} onChange={e=>setForm(f=>({...f,startTime:e.target.value}))} style={s_inp}/></div><div><div style={{fontSize:10,color:"#9ca3af",marginBottom:3,fontWeight:600}}>End</div><input type="time" value={form.endTime} onChange={e=>setForm(f=>({...f,endTime:e.target.value}))} style={s_inp}/></div></div></div>}
+                          <div style={{marginBottom:14}}><label style={s_lbl}>Repeat</label><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{RECUR_OPTIONS.map(r=><button key={r.id} onClick={()=>setForm(f=>({...f,recurring:r.id}))} style={{background:form.recurring===r.id?APP_COLOR:"#fff",color:form.recurring===r.id?"#fff":"#374151",border:`1.5px solid ${form.recurring===r.id?APP_COLOR:"#e5e7eb"}`,borderRadius:20,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>{r.label}</button>)}</div></div>
+                          <div style={{marginBottom:20}}><label style={s_lbl}>Notes (optional)</label><textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Any extra details..." rows={2} style={{...s_inp,resize:"none",fontFamily:"inherit"}}/></div>
+                          <button onClick={submitEvent} disabled={!form.title||!form.members.length||!form.date} style={{width:"100%",background:(!form.title||!form.members.length||!form.date)?"#e5e7eb":"linear-gradient(135deg,#4f46e5,#7c3aed)",color:(!form.title||!form.members.length||!form.date)?"#9ca3af":"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer"}}>{isEdit?"Save Changes":"Add to Calendar"}</button>
+                        </>
+                      )}
+                    </div>
+                  )}
+                </div>
+              </div>
+            </div>
+          )}
+        </div>
+
+        {/* Right panel */}
+        <DesktopRightPanel
+          settings={settings} memberCounts={memberCounts}
+          upcomingBds={upcomingBds} gardenJobs={gardenJobs}
+          allEvents={allEvents} birthdays={birthdays} today={today}
+        />
+      </div>
+    );
+  }
+
+  // ── MOBILE LAYOUT ─────────────────────────────────────────────────────────
   return(
     <div style={{fontFamily:"'Inter',system-ui,sans-serif",background:"#f8f7ff",minHeight:"100vh",maxWidth:480,margin:"0 auto",paddingBottom:90}}>
 
-      <DeleteModal item={deleteConfirm} onCancel={()=>setDeleteConfirm(null)} onConfirm={doDelete}/>
-      {showBdForm&&bdForm&&<BdModal bdForm={bdForm} setBdForm={setBdForm} onClose={()=>{setShowBdForm(false);setBdForm(null);}} onSave={saveBirthday} members={settings.members}/>}
-      {toast&&<div style={{position:"fixed",top:16,left:"50%",transform:"translateX(-50%)",background:"#1f1535",color:"#fff",borderRadius:12,padding:"10px 20px",fontSize:14,fontWeight:700,zIndex:100,boxShadow:"0 4px 16px rgba(0,0,0,0.2)",whiteSpace:"nowrap"}}>{toast}</div>}
+      {Modals}
 
       {/* Header */}
       <div style={{background:"linear-gradient(135deg,#4f46e5 0%,#7c3aed 100%)",color:"#fff",padding:"20px 20px 14px",position:"sticky",top:0,zIndex:10}}>
