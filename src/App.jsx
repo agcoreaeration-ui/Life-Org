@@ -127,8 +127,8 @@ function generateICal(events,birthdays,terms,name){
     if(rm[ev.recurring])lines.push(`RRULE:FREQ=${rm[ev.recurring]}`);
     lines.push("END:VEVENT");
   });
-  terms.forEach((term,i)=>{if(!term.start||!term.end)return;lines.push("BEGIN:VEVENT",`UID:term-${i}@lifeorg`,`SUMMARY:📚 ${term.label}`,`DTSTART;VALUE=DATE:${term.start.replace(/-/g,"")}`,`DTEND;VALUE=DATE:${fmt(addDays(parseDate(term.end),1)).replace(/-/g,"")}","END:VEVENT");});
-  Object.entries(VIC_HOLIDAYS).forEach(([ds,n])=>{lines.push("BEGIN:VEVENT",`UID:ph-${ds}@lifeorg`,`SUMMARY:🏖️ ${n}`,`DTSTART;VALUE=DATE:${ds.replace(/-/g,"")}`,`DTEND;VALUE=DATE:${fmt(addDays(parseDate(ds),1)).replace(/-/g,"")}","END:VEVENT");});
+  terms.forEach((term,i)=>{if(!term.start||!term.end)return;lines.push("BEGIN:VEVENT",`UID:term-${i}@lifeorg`,`SUMMARY:📚 ${term.label}`,`DTSTART;VALUE=DATE:${term.start.replace(/-/g,"")}`,`DTEND;VALUE=DATE:${fmt(addDays(parseDate(term.end),1)).replace(/-/g,"")}`,`END:VEVENT`);});
+  Object.entries(VIC_HOLIDAYS).forEach(([ds,n])=>{lines.push("BEGIN:VEVENT",`UID:ph-${ds}@lifeorg`,`SUMMARY:🏖️ ${n}`,`DTSTART;VALUE=DATE:${ds.replace(/-/g,"")}`,`DTEND;VALUE=DATE:${fmt(addDays(parseDate(ds),1)).replace(/-/g,"")}`,`END:VEVENT`);});
   lines.push("END:VCALENDAR");
   return lines.join("\r\n");
 }
