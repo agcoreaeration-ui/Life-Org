@@ -240,7 +240,6 @@ useEffect(()=>{
   try{const r=localStorage.getItem(SK.terms);     if(r)setTerms(JSON.parse(r));}catch(_){}
   setLoaded(true);
 },[]);
-  },[]);
   useEffect(()=>{if(!loaded)return;localStorage.setItem(SK.events,    JSON.stringify(events));},[events,loaded]);
   useEffect(()=>{if(!loaded)return;localStorage.setItem(SK.notes,     JSON.stringify(notes));},[notes,loaded]);
   useEffect(()=>{if(!loaded)return;localStorage.setItem(SK.birthdays, JSON.stringify(birthdays));},[birthdays,loaded]);
