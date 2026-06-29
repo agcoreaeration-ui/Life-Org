@@ -449,10 +449,28 @@ function SettingsView({settings,setSettings,terms,setTerms,onExport,showToast}){
           </div>;
         })}
       </Sec>
-      <Sec title="📅 Export Calendar">
-        <div style={{fontSize:12,color:"#6b7280",marginBottom:12}}>Download an .ics file — import into Apple Calendar, Google Calendar, or any app on your phone</div>
-        <button onClick={onExport} style={{width:"100%",background:"linear-gradient(135deg,#4f46e5,#7c3aed)",color:"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:14,fontWeight:700,cursor:"pointer"}}>📥 Download .ics Calendar File</button>
-        <div style={{fontSize:11,color:"#9ca3af",marginTop:8,textAlign:"center"}}>Includes all events, birthdays, school terms & public holidays</div>
+      <Sec title="📅 Subscribe to Calendar">
+        <div style={{fontSize:12,color:"#6b7280",marginBottom:12}}>
+          Add this URL to your iPhone to keep Apple Calendar in sync automatically. Updates every hour.
+        </div>
+        <div style={{background:"#f3f4f6",borderRadius:10,padding:"10px 12px",marginBottom:12,fontFamily:"monospace",fontSize:11,color:"#374151",wordBreak:"break-all",lineHeight:1.5}}>
+          https://lifeorg-api.agcoreaeration.workers.dev/api/calendar.ics
+        </div>
+        <button onClick={()=>{
+          navigator.clipboard.writeText("https://lifeorg-api.agcoreaeration.workers.dev/api/calendar.ics");
+          showToast("📋 URL copied!");
+        }} style={{width:"100%",background:"linear-gradient(135deg,#4f46e5,#7c3aed)",color:"#fff",border:"none",borderRadius:12,padding:"13px",fontSize:14,fontWeight:700,cursor:"pointer",marginBottom:10}}>
+          📋 Copy Subscription URL
+        </button>
+        <div style={{fontSize:11,color:"#9ca3af",lineHeight:1.6}}>
+          <strong style={{color:"#374151"}}>iPhone setup:</strong> Settings → Calendar → Accounts → Add Account → Other → Add Subscribed Calendar → paste URL
+        </div>
+        <div style={{marginTop:10,paddingTop:10,borderTop:"1px solid #f3f4f6"}}>
+          <div style={{fontSize:11,color:"#9ca3af",marginBottom:8}}>Or download a one-time snapshot:</div>
+          <button onClick={onExport} style={{width:"100%",background:"#f3f4f6",color:"#374151",border:"none",borderRadius:10,padding:"10px",fontSize:13,fontWeight:600,cursor:"pointer"}}>
+            📥 Download .ics file
+          </button>
+        </div>
       </Sec>
       <Sec title="ℹ️ About">
         <div style={{textAlign:"center",padding:"8px 0"}}>
