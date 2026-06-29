@@ -1,4 +1,4 @@
-import { useState, useMemo, useEffect, useCallback } from "react";
+import { useState, useMemo, useEffect, useCallback, useRef } from "react";
 
 const APP_TAGLINE = "Life, organised.";
 const APP_COLOR   = "#4f46e5";
@@ -643,6 +643,53 @@ export default function LifeOrg(){
   const isEdit=!!editingId;
   const totalWeekEvents=weekDays.reduce((s,d)=>{const ds=fmt(d);return s+(eventsByDay[ds]||[]).length+(filterMember==="all"?(gardenByDay[ds]||[]).length:0);},0);
 
+  // ── Sync / refresh ────────────────────────────────────────────────────────
+  const [syncing,setSyncing]=useState(false);
+  async function refreshData(){
+    if(syncing)return;
+    setSyncing(true);
+    try{
+      const [evs,bds,nts,cfg,tms]=await Promise.all([
+        apiFetch("/api/events").catch(()=>null),
+        apiFetch("/api/birthdays").catch(()=>null),
+        apiFetch("/api/notes").catch(()=>null),
+        apiFetch("/api/settings").catch(()=>null),
+        apiFetch("/api/terms").catch(()=>null),
+      ]);
+      if(evs)setEvents(evs);
+      if(bds)setBirthdays(bds);
+      if(nts)setNotes(nts);
+      if(cfg?.familyName)setSettings(cfg);
+      if(tms?.length)setTerms(tms);
+    }catch(_){}
+    setSyncing(false);
+  }
+
+  // Background poll every 30 seconds
+  useEffect(()=>{
+    const interval=setInterval(()=>{if(view==="week")refreshData();},30000);
+    return()=>clearInterval(interval);
+  },[view]);
+
+  // Pull-to-refresh
+  const pullRef=useRef(null);
+  const pullStartY=useRef(null);
+  const [pullDistance,setPullDistance]=useState(0);
+  const PULL_THRESHOLD=70;
+  function onTouchStart(e){pullStartY.current=e.touches[0].clientY;}
+  function onTouchMove(e){
+    if(pullStartY.current===null)return;
+    const el=pullRef.current;
+    if(!el||el.scrollTop>0){pullStartY.current=null;setPullDistance(0);return;}
+    const dist=Math.max(0,Math.min(e.touches[0].clientY-pullStartY.current,120));
+    if(dist>0)setPullDistance(dist);
+  }
+  function onTouchEnd(){
+    if(pullDistance>=PULL_THRESHOLD)refreshData();
+    pullStartY.current=null;
+    setPullDistance(0);
+  }
+
   // ── Splash ────────────────────────────────────────────────────────────────
   if(view==="splash"){return(
     <div style={{display:"flex",flexDirection:"column",alignItems:"center",justifyContent:"center",minHeight:"100vh",background:"linear-gradient(145deg,#4f46e5 0%,#7c3aed 100%)",fontFamily:"'Inter',system-ui,sans-serif"}}>
@@ -717,7 +764,12 @@ export default function LifeOrg(){
             <div style={{fontSize:10,fontWeight:700,letterSpacing:3,opacity:0.6,textTransform:"uppercase"}}>{APP_TAGLINE}</div>
             <div style={{fontSize:22,fontWeight:800,marginTop:2,letterSpacing:"-0.3px"}}><span style={{opacity:0.7,fontWeight:400}}>✦ </span>Life Org</div>
           </div>
-          {view!=="add"&&<button onClick={()=>openAdd()} style={{background:"rgba(255,255,255,0.2)",border:"1.5px solid rgba(255,255,255,0.4)",color:"#fff",borderRadius:12,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:18}}>+</span> Add</button>}
+          <div style={{display:"flex",gap:8,alignItems:"center"}}>
+            <button onClick={refreshData} title="Refresh" style={{background:"rgba(255,255,255,0.15)",border:"none",color:"#fff",borderRadius:10,width:36,height:36,display:"flex",alignItems:"center",justifyContent:"center",cursor:"pointer",fontSize:16,transition:"transform 0.4s",transform:syncing?"rotate(360deg)":"rotate(0deg)"}}>
+              {syncing?"⏳":"🔄"}
+            </button>
+            {view!=="add"&&<button onClick={()=>openAdd()} style={{background:"rgba(255,255,255,0.2)",border:"1.5px solid rgba(255,255,255,0.4)",color:"#fff",borderRadius:12,padding:"8px 16px",fontSize:14,fontWeight:600,cursor:"pointer",display:"flex",alignItems:"center",gap:6}}><span style={{fontSize:18}}>+</span> Add</button>}
+          </div>
         </div>
         {view==="week"&&(
           <div style={{display:"flex",gap:7,marginTop:14,overflowX:"auto",paddingBottom:2}}>
@@ -728,7 +780,17 @@ export default function LifeOrg(){
 
       {/* Week view */}
       {view==="week"&&(
-        <div style={{padding:"0 0 20px"}}>
+        <div ref={pullRef} onTouchStart={onTouchStart} onTouchMove={onTouchMove} onTouchEnd={onTouchEnd} style={{padding:"0 0 20px",overflowY:"auto"}}>
+
+          {/* Pull-to-refresh indicator */}
+          {pullDistance>0&&(
+            <div style={{display:"flex",alignItems:"center",justifyContent:"center",height:pullDistance*0.6,transition:"height 0.1s",overflow:"hidden"}}>
+              <div style={{display:"flex",flexDirection:"column",alignItems:"center",gap:4,opacity:pullDistance/PULL_THRESHOLD}}>
+                <div style={{fontSize:20,transform:`rotate(${pullDistance*2}deg)`,transition:"transform 0.1s"}}>{pullDistance>=PULL_THRESHOLD?"✅":"🔄"}</div>
+                <div style={{fontSize:11,color:"#6b7280",fontWeight:600}}>{pullDistance>=PULL_THRESHOLD?"Release to refresh":"Pull to refresh"}</div>
+              </div>
+            </div>
+          )}
           <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",padding:"14px 20px 8px"}}>
             <button onClick={()=>setWeekOffset(o=>o-1)} style={{background:"none",border:"none",fontSize:22,cursor:"pointer",color:APP_COLOR}}>‹</button>
             <div style={{textAlign:"center"}}>
