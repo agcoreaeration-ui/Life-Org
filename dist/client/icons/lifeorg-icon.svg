@@ -1,0 +1,132 @@
+<svg xmlns="http://www.w3.org/2000/svg" viewBox="0 0 512 512" width="512" height="512">
+  <defs>
+    <!-- Main background gradient -->
+    <linearGradient id="bg" x1="0%" y1="0%" x2="100%" y2="100%">
+      <stop offset="0%" style="stop-color:#4f46e5"/>
+      <stop offset="100%" style="stop-color:#7c3aed"/>
+    </linearGradient>
+    <!-- Shine overlay -->
+    <linearGradient id="shine" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:0.18"/>
+      <stop offset="50%" style="stop-color:#ffffff;stop-opacity:0"/>
+    </linearGradient>
+    <!-- Card gradient -->
+    <linearGradient id="card" x1="0%" y1="0%" x2="0%" y2="100%">
+      <stop offset="0%" style="stop-color:#ffffff;stop-opacity:1"/>
+      <stop offset="100%" style="stop-color:#f0effe;stop-opacity:1"/>
+    </linearGradient>
+    <!-- Apple icon corner radius clip -->
+    <clipPath id="rounded">
+      <rect width="512" height="512" rx="112" ry="112"/>
+    </clipPath>
+  </defs>
+
+  <!-- Background -->
+  <g clip-path="url(#rounded)">
+    <rect width="512" height="512" fill="url(#bg)"/>
+
+    <!-- Shine -->
+    <rect width="512" height="512" fill="url(#shine)"/>
+
+    <!-- Subtle dot grid pattern -->
+    <g opacity="0.08">
+      <circle cx="80"  cy="80"  r="5" fill="#fff"/>
+      <circle cx="160" cy="80"  r="5" fill="#fff"/>
+      <circle cx="240" cy="80"  r="5" fill="#fff"/>
+      <circle cx="320" cy="80"  r="5" fill="#fff"/>
+      <circle cx="400" cy="80"  r="5" fill="#fff"/>
+      <circle cx="80"  cy="160" r="5" fill="#fff"/>
+      <circle cx="160" cy="160" r="5" fill="#fff"/>
+      <circle cx="240" cy="160" r="5" fill="#fff"/>
+      <circle cx="320" cy="160" r="5" fill="#fff"/>
+      <circle cx="400" cy="160" r="5" fill="#fff"/>
+      <circle cx="80"  cy="240" r="5" fill="#fff"/>
+      <circle cx="160" cy="240" r="5" fill="#fff"/>
+      <circle cx="240" cy="240" r="5" fill="#fff"/>
+      <circle cx="320" cy="240" r="5" fill="#fff"/>
+      <circle cx="400" cy="240" r="5" fill="#fff"/>
+      <circle cx="80"  cy="320" r="5" fill="#fff"/>
+      <circle cx="160" cy="320" r="5" fill="#fff"/>
+      <circle cx="240" cy="320" r="5" fill="#fff"/>
+      <circle cx="320" cy="320" r="5" fill="#fff"/>
+      <circle cx="400" cy="320" r="5" fill="#fff"/>
+      <circle cx="80"  cy="400" r="5" fill="#fff"/>
+      <circle cx="160" cy="400" r="5" fill="#fff"/>
+      <circle cx="240" cy="400" r="5" fill="#fff"/>
+      <circle cx="320" cy="400" r="5" fill="#fff"/>
+      <circle cx="400" cy="400" r="5" fill="#fff"/>
+      <circle cx="80"  cy="480" r="5" fill="#fff"/>
+      <circle cx="160" cy="480" r="5" fill="#fff"/>
+      <circle cx="240" cy="480" r="5" fill="#fff"/>
+      <circle cx="320" cy="480" r="5" fill="#fff"/>
+      <circle cx="400" cy="480" r="5" fill="#fff"/>
+    </g>
+
+    <!-- White calendar card -->
+    <rect x="96" y="130" width="320" height="290" rx="28" ry="28" fill="url(#card)" opacity="1"/>
+    <!-- Card shadow suggestion -->
+    <rect x="96" y="132" width="320" height="290" rx="28" ry="28" fill="none" stroke="rgba(0,0,0,0.06)" stroke-width="1"/>
+
+    <!-- Calendar header bar (indigo) -->
+    <rect x="96" y="130" width="320" height="72" rx="28" ry="28" fill="#4f46e5"/>
+    <rect x="96" y="172" width="320" height="30" fill="#4f46e5"/>
+
+    <!-- Calendar header label -->
+    <text x="256" y="177" text-anchor="middle" font-family="'SF Pro Display', -apple-system, 'Helvetica Neue', sans-serif" font-size="28" font-weight="700" fill="white" letter-spacing="2">LIFE ORG</text>
+
+    <!-- Pin dots on calendar header -->
+    <circle cx="166" cy="138" r="10" fill="#7c3aed"/>
+    <circle cx="166" cy="138" r="6" fill="#e0e7ff"/>
+    <circle cx="346" cy="138" r="10" fill="#7c3aed"/>
+    <circle cx="346" cy="138" r="6" fill="#e0e7ff"/>
+
+    <!-- Day grid: 7 columns, 3 rows -->
+    <!-- Row 0: day labels -->
+    <text x="128" y="236" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="18" font-weight="600" fill="#a5b4fc">M</text>
+    <text x="174" y="236" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="18" font-weight="600" fill="#a5b4fc">T</text>
+    <text x="220" y="236" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="18" font-weight="600" fill="#a5b4fc">W</text>
+    <text x="256" y="236" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="18" font-weight="600" fill="#a5b4fc">T</text>
+    <text x="302" y="236" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="18" font-weight="600" fill="#a5b4fc">F</text>
+    <text x="346" y="236" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="18" font-weight="600" fill="#c4b5fd">S</text>
+    <text x="384" y="236" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="18" font-weight="600" fill="#c4b5fd">S</text>
+
+    <!-- Row 1: date numbers -->
+    <text x="128" y="284" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="500" fill="#374151">2</text>
+    <text x="174" y="284" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="500" fill="#374151">3</text>
+    <text x="220" y="284" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="500" fill="#374151">4</text>
+
+    <!-- TODAY circle highlight -->
+    <circle cx="256" cy="272" r="22" fill="#4f46e5"/>
+    <text x="256" y="280" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="700" fill="white">5</text>
+
+    <text x="302" y="284" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="500" fill="#374151">6</text>
+    <text x="346" y="284" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="500" fill="#9ca3af">7</text>
+    <text x="384" y="284" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="500" fill="#9ca3af">8</text>
+
+    <!-- Row 2 -->
+    <text x="128" y="334" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="500" fill="#374151">9</text>
+    <text x="174" y="334" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="500" fill="#374151">10</text>
+    <text x="220" y="334" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="500" fill="#374151">11</text>
+    <text x="256" y="334" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="500" fill="#374151">12</text>
+    <text x="302" y="334" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="500" fill="#374151">13</text>
+    <text x="346" y="334" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="500" fill="#9ca3af">14</text>
+    <text x="384" y="334" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="22" font-weight="500" fill="#9ca3af">15</text>
+
+    <!-- Event dots below some dates -->
+    <circle cx="128" cy="296" r="4" fill="#ec4899"/>
+    <circle cx="302" cy="296" r="4" fill="#10b981"/>
+    <circle cx="174" cy="346" r="4" fill="#f59e0b"/>
+    <circle cx="256" cy="346" r="4" fill="#ef4444"/>
+
+    <!-- Event strip row 3 -->
+    <rect x="108" y="360" width="148" height="26" rx="8" fill="#eef2ff"/>
+    <text x="182" y="378" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="14" font-weight="600" fill="#4f46e5">Football 5pm</text>
+
+    <rect x="270" y="360" width="134" height="26" rx="8" fill="#fdf2f8"/>
+    <text x="337" y="378" text-anchor="middle" font-family="-apple-system,sans-serif" font-size="14" font-weight="600" fill="#ec4899">Dentist 10am</text>
+
+    <!-- Bottom wordmark -->
+    <text x="256" y="440" text-anchor="middle" font-family="'SF Pro Display', -apple-system, 'Helvetica Neue', sans-serif" font-size="22" font-weight="800" fill="#4f46e5" letter-spacing="3" opacity="0.5">LIFE ORG</text>
+
+  </g>
+</svg>
