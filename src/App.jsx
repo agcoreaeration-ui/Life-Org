@@ -492,21 +492,70 @@ export default function LifeOrg(){
 
   useEffect(()=>{const t=setTimeout(()=>setView("week"),2200);return()=>clearTimeout(t);},[]);
 
+  // ── API ───────────────────────────────────────────────────────────────────
+  const API = "https://lifeorg-api.agcoreaeration.workers.dev";
+  async function apiFetch(path, method="GET", body=null){
+    const opts={method,headers:{"Content-Type":"application/json"}};
+    if(body)opts.body=JSON.stringify(body);
+    const r=await fetch(API+path,opts);
+    if(!r.ok)throw new Error(`API ${path} failed: ${r.status}`);
+    return r.json();
+  }
+
+  // Load all data from D1 on mount
   useEffect(()=>{
-    try{const r=localStorage.getItem(SK.events);    if(r)setEvents(JSON.parse(r));}catch(_){}
-    try{const r=localStorage.getItem(SK.garden);    if(r)setGardenJobs(JSON.parse(r));}catch(_){}
-    try{const r=localStorage.getItem(SK.notes);     if(r)setNotes(JSON.parse(r));}catch(_){}
-    try{const r=localStorage.getItem(SK.birthdays); if(r)setBirthdays(JSON.parse(r));}catch(_){}
-    try{const r=localStorage.getItem(SK.settings);  if(r)setSettings(JSON.parse(r));}catch(_){}
-    try{const r=localStorage.getItem(SK.terms);     if(r)setTerms(JSON.parse(r));}catch(_){}
-    setLoaded(true);
+    (async()=>{
+      try{
+        const [evs,bds,nts,cfg,tms]=await Promise.all([
+          apiFetch("/api/events").catch(()=>null),
+          apiFetch("/api/birthdays").catch(()=>null),
+          apiFetch("/api/notes").catch(()=>null),
+          apiFetch("/api/settings").catch(()=>null),
+          apiFetch("/api/terms").catch(()=>null),
+        ]);
+        if(evs?.length)setEvents(evs);
+        if(bds?.length)setBirthdays(bds);
+        if(nts?.length)setNotes(nts);
+        if(cfg?.familyName)setSettings(cfg);
+        if(tms?.length)setTerms(tms);
+      }catch(e){
+        console.warn("API load failed, falling back to localStorage",e);
+        try{const r=localStorage.getItem(SK.events);    if(r)setEvents(JSON.parse(r));}catch(_){}
+        try{const r=localStorage.getItem(SK.notes);     if(r)setNotes(JSON.parse(r));}catch(_){}
+        try{const r=localStorage.getItem(SK.birthdays); if(r)setBirthdays(JSON.parse(r));}catch(_){}
+        try{const r=localStorage.getItem(SK.settings);  if(r)setSettings(JSON.parse(r));}catch(_){}
+        try{const r=localStorage.getItem(SK.terms);     if(r)setTerms(JSON.parse(r));}catch(_){}
+      }
+      setLoaded(true);
+    })();
   },[]);
 
-  useEffect(()=>{if(!loaded)return;localStorage.setItem(SK.events,    JSON.stringify(events));},[events,loaded]);
-  useEffect(()=>{if(!loaded)return;localStorage.setItem(SK.notes,     JSON.stringify(notes));},[notes,loaded]);
-  useEffect(()=>{if(!loaded)return;localStorage.setItem(SK.birthdays, JSON.stringify(birthdays));},[birthdays,loaded]);
-  useEffect(()=>{if(!loaded)return;localStorage.setItem(SK.settings,  JSON.stringify(settings));},[settings,loaded]);
-  useEffect(()=>{if(!loaded)return;localStorage.setItem(SK.terms,     JSON.stringify(terms));},[terms,loaded]);
+  // Save to D1 + localStorage (localStorage as offline fallback)
+  useEffect(()=>{
+    if(!loaded)return;
+    localStorage.setItem(SK.events,JSON.stringify(events));
+    apiFetch("/api/events","POST",events).catch(()=>{});
+  },[events,loaded]);
+  useEffect(()=>{
+    if(!loaded)return;
+    localStorage.setItem(SK.notes,JSON.stringify(notes));
+    apiFetch("/api/notes","POST",notes).catch(()=>{});
+  },[notes,loaded]);
+  useEffect(()=>{
+    if(!loaded)return;
+    localStorage.setItem(SK.birthdays,JSON.stringify(birthdays));
+    apiFetch("/api/birthdays","POST",birthdays).catch(()=>{});
+  },[birthdays,loaded]);
+  useEffect(()=>{
+    if(!loaded)return;
+    localStorage.setItem(SK.settings,JSON.stringify(settings));
+    apiFetch("/api/settings","POST",settings).catch(()=>{});
+  },[settings,loaded]);
+  useEffect(()=>{
+    if(!loaded)return;
+    localStorage.setItem(SK.terms,JSON.stringify(terms));
+    apiFetch("/api/terms","POST",terms).catch(()=>{});
+  },[terms,loaded]);
 
   const MEMBERS_ALL=useMemo(()=>[{id:"all",name:"Everyone",color:APP_COLOR,emoji:"👨‍👩‍👧‍👦",type:"family"},...settings.members],[settings.members]);
   const petMember=settings.members.find(m=>m.type==="pet");

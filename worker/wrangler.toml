@@ -1,0 +1,9 @@
+name = "lifeorg-api"
+main = "index.js"
+compatibility_date = "2024-01-01"
+workers_dev = true
+
+[[d1_databases]]
+binding = "lifeorg"
+database_name = "lifeorg"
+database_id = "95adeb86-e3fd-4f6f-bff0-9cb2a1b9077c"

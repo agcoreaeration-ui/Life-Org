@@ -16,6 +16,13 @@
 	"upload_source_maps": true,
 	"compatibility_flags": [
 		"nodejs_compat"
+	],
+	"d1_databases": [
+		{
+			"binding": "lifeorg",
+			"database_name": "lifeorg",
+			"database_id": "95adeb86-e3fd-4f6f-bff0-9cb2a1b9077c"
+		}
 	]
 	/**
 	 * Smart Placement
