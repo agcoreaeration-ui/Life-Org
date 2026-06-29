@@ -282,7 +282,7 @@ function BdModal({bdForm,setBdForm,onClose,onSave,members}){
   );
 }
 
-function NotesView({notes,setNotes}){
+function NotesView({notes,setNotes,onDeleteNote}){
   const [newNote,setNewNote]=useState("");
   function addNote(){if(!newNote.trim())return;setNotes(p=>[{id:Date.now(),text:newNote.trim(),createdAt:today,pinned:false},...p]);setNewNote("");}
   const sorted=[...notes].sort((a,b)=>(b.pinned?1:0)-(a.pinned?1:0)||(b.createdAt||"").localeCompare(a.createdAt||""));
@@ -300,7 +300,7 @@ function NotesView({notes,setNotes}){
           <div style={{flex:1,fontSize:14,color:"#1f1535",lineHeight:1.5}}>{n.text}</div>
           <div style={{display:"flex",flexDirection:"column",gap:4,flexShrink:0}}>
             <button onClick={()=>setNotes(p=>p.map(nn=>nn.id===n.id?{...nn,pinned:!nn.pinned}:nn))} style={{background:"none",border:"none",fontSize:14,cursor:"pointer",color:n.pinned?"#7c3aed":"#d1d5db"}}>📌</button>
-            <button onClick={()=>setNotes(p=>p.filter(nn=>nn.id!==n.id))} style={{background:"none",border:"none",fontSize:14,cursor:"pointer",color:"#d1d5db"}}>✕</button>
+            <button onClick={()=>{setNotes(p=>p.filter(nn=>nn.id!==n.id));onDeleteNote&&onDeleteNote(n.id);}} style={{background:"none",border:"none",fontSize:14,cursor:"pointer",color:"#d1d5db"}}>✕</button>
           </div>
         </div>
       ))}
@@ -343,7 +343,7 @@ function MarleyView({allEvents,petMember,setView,setForm}){
   );
 }
 
-function BirthdaysView({birthdays,setBirthdays,upcomingBds,setBdForm,setShowBdForm}){
+function BirthdaysView({birthdays,setBirthdays,upcomingBds,setBdForm,setShowBdForm,onDeleteBirthday}){
   return(
     <div style={{padding:"12px 20px 20px"}}>
       <div style={{display:"flex",alignItems:"center",justifyContent:"space-between",marginBottom:14}}>
@@ -376,7 +376,7 @@ function BirthdaysView({birthdays,setBirthdays,upcomingBds,setBdForm,setShowBdFo
                     {away!==null&&away<=30&&<span style={{fontSize:10,fontWeight:800,color:away<=7?"#f43f5e":"#f59e0b"}}>{away===0?"🎉 Today!":away===1?"Tomorrow":`In ${away}d`}</span>}
                     <div style={{display:"flex",gap:4}}>
                       <button onClick={()=>{setBdForm({...bd});setShowBdForm(true);}} style={{background:"none",border:"none",color:"#9ca3af",cursor:"pointer",fontSize:14}}>✏️</button>
-                      <button onClick={()=>setBirthdays(p=>p.filter(b=>b.id!==bd.id))} style={{background:"none",border:"none",color:"#fca5a5",cursor:"pointer",fontSize:14}}>✕</button>
+                      <button onClick={()=>{setBirthdays(p=>p.filter(b=>b.id!==bd.id));onDeleteBirthday&&onDeleteBirthday(bd.id);}} style={{background:"none",border:"none",color:"#fca5a5",cursor:"pointer",fontSize:14}}>✕</button>
                     </div>
                   </div>
                 </div>
@@ -591,7 +591,23 @@ export default function LifeOrg(){
   function openAdd(pre){setForm(blankForm(pre));setEditingId(null);setStep(1);setView("add");}
   function openEdit(ev){setForm({id:ev.id,type:ev.type,title:ev.title,customTitle:true,members:ev.members,date:ev.date,endDate:ev.endDate||ev.date,allDay:ev.allDay||false,startTime:ev.startTime||"",endTime:ev.endTime||"",notes:ev.notes||"",recurring:ev.recurring||"none",bdName:"",bdDob:"",bdCategory:"friend",bdMemberId:""});setEditingId(ev.id);setStep(3);setView("add");setExpandedEv(null);}
   function confirmDelete(id,title){setDeleteConfirm({id,title});}
-  function doDelete(){if(!deleteConfirm)return;setEvents(p=>p.filter(e=>e.id!==deleteConfirm.id));setExpandedEv(null);showToast("🗑 Event removed");setDeleteConfirm(null);}
+  function doDelete(){
+    if(!deleteConfirm)return;
+    const id=deleteConfirm.id;
+    setEvents(p=>p.filter(e=>e.id!==id));
+    setExpandedEv(null);
+    showToast("🗑 Event removed");
+    setDeleteConfirm(null);
+    apiFetch("/api/events","DELETE",{id}).catch(()=>{});
+  }
+  function deleteNote(id){
+    setNotes(p=>p.filter(n=>n.id!==id));
+    apiFetch("/api/notes","DELETE",{id}).catch(()=>{});
+  }
+  function deleteBirthday(id){
+    setBirthdays(p=>p.filter(b=>b.id!==id));
+    apiFetch("/api/birthdays","DELETE",{id}).catch(()=>{});
+  }
   function toggleMember(id){
     if(id==="all"){setForm(f=>({...f,members:f.members.includes("all")?[]:["all"]}));return;}
     setForm(f=>{const w=f.members.filter(m=>m!=="all");return w.includes(id)?{...f,members:w.filter(m=>m!==id)}:{...f,members:[...w,id]};});
@@ -888,9 +904,9 @@ export default function LifeOrg(){
         </div>
       )}
 
-      {view==="notes"     &&<NotesView notes={notes} setNotes={setNotes}/>}
+      {view==="notes"     &&<NotesView notes={notes} setNotes={setNotes} onDeleteNote={deleteNote}/>}
       {view==="marley"    &&<MarleyView allEvents={allEvents} petMember={petMember} setView={setView} setForm={setForm}/>}
-      {view==="birthdays" &&<BirthdaysView birthdays={birthdays} setBirthdays={setBirthdays} upcomingBds={upcomingBds} setBdForm={setBdForm} setShowBdForm={setShowBdForm}/>}
+      {view==="birthdays" &&<BirthdaysView birthdays={birthdays} setBirthdays={setBirthdays} upcomingBds={upcomingBds} setBdForm={setBdForm} setShowBdForm={setShowBdForm} onDeleteBirthday={deleteBirthday}/>}
       {view==="settings"  &&<SettingsView settings={settings} setSettings={setSettings} terms={terms} setTerms={setTerms} onExport={handleExport} showToast={showToast}/>}
 
       {/* Bottom nav */}
