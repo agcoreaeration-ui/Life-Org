@@ -117,6 +117,74 @@ function birthdayEvents(birthdays){
   return evs;
 }
 
+// ── Recurring event expansion ──────────────────────────────────────────────
+// Generates future occurrences of a recurring event for a date window.
+// The originally-stored event (ev) acts as the template — only its date/endDate
+// shift for each occurrence, everything else (title, members, time...) stays the same.
+function expandRecurringEvent(ev, windowStart, windowEnd){
+  if(!ev.recurring || ev.recurring === "none") return [ev];
+
+  const occurrences = [];
+  const spanDays = ev.endDate && ev.endDate !== ev.date
+    ? Math.round((parseDate(ev.endDate) - parseDate(ev.date)) / 86400000)
+    : 0;
+
+  let cursor = parseDate(ev.date);
+  const winStart = parseDate(windowStart);
+  const winEnd   = parseDate(windowEnd);
+  let guard = 0; // safety valve against infinite loops
+
+  function stepForward(d){
+    const next = new Date(d);
+    switch(ev.recurring){
+      case "daily":       next.setDate(next.getDate()+1); break;
+      case "weekly":      next.setDate(next.getDate()+7); break;
+      case "fortnightly": next.setDate(next.getDate()+14); break;
+      case "monthly":     next.setMonth(next.getMonth()+1); break;
+      case "yearly":      next.setFullYear(next.getFullYear()+1); break;
+      case "custom": {
+        const n = Math.max(1, parseInt(ev.customInterval)||1);
+        if(ev.customUnit==="days")        next.setDate(next.getDate()+n);
+        else if(ev.customUnit==="weeks")  next.setDate(next.getDate()+n*7);
+        else                              next.setMonth(next.getMonth()+n); // months default
+        break;
+      }
+      default: next.setDate(next.getDate()+7);
+    }
+    return next;
+  }
+
+  // Walk forward from the original date, collecting occurrences inside the window.
+  // Cap at 200 iterations as a hard safety limit (covers years of daily events).
+  while(cursor <= winEnd && guard < 200){
+    if(cursor >= winStart){
+      const ds = fmt(cursor);
+      const endDs = spanDays>0 ? fmt(addDays(cursor, spanDays)) : ds;
+      occurrences.push({
+        ...ev,
+        id: cursor.getTime()===parseDate(ev.date).getTime() ? ev.id : `${ev.id}-r${fmt(cursor)}`,
+        date: ds,
+        endDate: endDs,
+        isRecurrenceInstance: cursor.getTime()!==parseDate(ev.date).getTime(),
+      });
+    }
+    cursor = stepForward(cursor);
+    guard++;
+  }
+
+  return occurrences;
+}
+
+// Expand a whole list of events across a date window (used for week view etc.)
+function expandEventsForWindow(events, windowStart, windowEnd){
+  const out=[];
+  events.forEach(ev=>{
+    if(!ev.recurring || ev.recurring==="none"){ out.push(ev); return; }
+    out.push(...expandRecurringEvent(ev, windowStart, windowEnd));
+  });
+  return out;
+}
+
 function generateICal(events,birthdays,terms,name){
   const lines=["BEGIN:VCALENDAR","VERSION:2.0",`PRODID:-//LifeOrg//${name}//EN`,
     `X-WR-CALNAME:${name} — Life Org`,"CALSCALE:GREGORIAN","METHOD:PUBLISH"];
@@ -202,10 +270,11 @@ function EventPill({ev,dateStr,members,expandedEv,setExpandedEv,openEdit,confirm
           {ev.location&&<p style={{fontSize:12,color:"#6b7280",margin:"8px 0 4px",display:"flex",alignItems:"center",gap:5}}>📍 {ev.location}</p>}
           {ev.notes&&<p style={{fontSize:12,color:"#6b7280",margin:"8px 0 4px"}}>{ev.notes}</p>}
           {isMulti&&<p style={{fontSize:11,color:"#9ca3af",margin:"4px 0"}}>{parseDate(ev.date).toLocaleDateString("en-AU",{day:"numeric",month:"short"})} → {parseDate(ev.endDate).toLocaleDateString("en-AU",{day:"numeric",month:"short"})}</p>}
-          {ev.recurring!=="none"&&<p style={{fontSize:11,color:"#9ca3af",margin:"4px 0"}}>🔁 {ev.recurring==="custom"?`Every ${ev.customInterval||1} ${ev.customUnit||"months"}`:RECUR_OPTIONS.find(r=>r.id===ev.recurring)?.label}</p>}
-          {!isBd&&<div style={{display:"flex",gap:8,marginTop:8}}>
-            <button onClick={e=>{e.stopPropagation();openEdit(ev);}} style={{background:"#f3f4ff",border:"none",borderRadius:8,color:APP_COLOR,fontSize:12,fontWeight:700,padding:"6px 14px",cursor:"pointer"}}>✏️ Edit</button>
-            <button onClick={e=>{e.stopPropagation();confirmDelete(ev.id,ev.title);}} style={{background:"#fef2f2",border:"none",borderRadius:8,color:"#ef4444",fontSize:12,fontWeight:700,padding:"6px 14px",cursor:"pointer"}}>🗑 Delete</button>
+          {ev.recurring!=="none"&&<p style={{fontSize:11,color:"#9ca3af",margin:"4px 0"}}>🔁 {ev.recurring==="custom"?`Every ${ev.customInterval||1} ${ev.customUnit||"months"}`:RECUR_OPTIONS.find(r=>r.id===ev.recurring)?.label}{ev.isRecurrenceInstance&&" · this is a repeat"}</p>}
+          {!isBd&&<div style={{display:"flex",gap:8,marginTop:8,alignItems:"center",flexWrap:"wrap"}}>
+            <button onClick={e=>{e.stopPropagation();openEdit(ev);}} style={{background:"#f3f4ff",border:"none",borderRadius:8,color:APP_COLOR,fontSize:12,fontWeight:700,padding:"6px 14px",cursor:"pointer"}}>✏️ {ev.isRecurrenceInstance?"Edit series":"Edit"}</button>
+            <button onClick={e=>{e.stopPropagation();confirmDelete(ev.id,ev.title,ev);}} style={{background:"#fef2f2",border:"none",borderRadius:8,color:"#ef4444",fontSize:12,fontWeight:700,padding:"6px 14px",cursor:"pointer"}}>🗑 {ev.isRecurrenceInstance?"Delete series":"Delete"}</button>
+            {ev.isRecurrenceInstance&&<span style={{fontSize:10,color:"#9ca3af"}}>Edits apply to the whole series</span>}
           </div>}
         </div>
       )}
@@ -314,7 +383,11 @@ function NotesView({notes,setNotes,onDeleteNote}){
 
 function MarleyView({allEvents,petMember,setView,setForm,petInfo,setPetInfo}){
   const pet=petMember||{name:"Marley",emoji:"🐾",color:"#a16207",id:"marley"};
-  const petEvs=allEvents.filter(ev=>ev.members.includes(pet.id)&&ev.date>=today).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,10);
+  const petEvs=useMemo(()=>{
+    const windowEnd=fmt(addDays(new Date(),90));
+    const expanded=expandEventsForWindow(allEvents, today, windowEnd);
+    return expanded.filter(ev=>ev.members.includes(pet.id)&&ev.date>=today).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,10);
+  },[allEvents,pet.id]);
   return(
     <div style={{padding:"12px 20px 20px"}}>
       <div style={{display:"flex",alignItems:"center",gap:12,marginBottom:16,background:"linear-gradient(135deg,#fef3c7,#fde68a)",borderRadius:16,padding:"14px 16px"}}>
@@ -654,7 +727,7 @@ function WeekGrid({weekDays,eventsByDay,gardenByDay,filterMember,termForDay,term
                       {exp&&!isBd&&(
                         <div style={{marginTop:6,paddingTop:6,borderTop:"1px solid #f3f4f6",display:"flex",gap:4}}>
                           <button onClick={e=>{e.stopPropagation();openEdit(ev);}} style={{background:"#f3f4ff",border:"none",borderRadius:5,color:APP_COLOR,fontSize:10,fontWeight:700,padding:"3px 8px",cursor:"pointer"}}>✏️</button>
-                          <button onClick={e=>{e.stopPropagation();confirmDelete(ev.id,ev.title);}} style={{background:"#fef2f2",border:"none",borderRadius:5,color:"#ef4444",fontSize:10,fontWeight:700,padding:"3px 8px",cursor:"pointer"}}>🗑</button>
+                          <button onClick={e=>{e.stopPropagation();confirmDelete(ev.id,ev.title,ev);}} style={{background:"#fef2f2",border:"none",borderRadius:5,color:"#ef4444",fontSize:10,fontWeight:700,padding:"3px 8px",cursor:"pointer"}}>🗑</button>
                         </div>
                       )}
                     </div>
@@ -681,7 +754,11 @@ function WeekGrid({weekDays,eventsByDay,gardenByDay,filterMember,termForDay,term
 }
 
 function DesktopRightPanel({settings,memberCounts,upcomingBds,gardenJobs,allEvents,birthdays,today}){
-  const upcoming=useMemo(()=>[...allEvents].filter(ev=>ev.date>=today).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,8),[allEvents,today]);
+  const upcoming=useMemo(()=>{
+    const windowEnd=fmt(addDays(new Date(),90)); // look 90 days ahead for recurring instances
+    const expanded=expandEventsForWindow(allEvents, today, windowEnd);
+    return expanded.filter(ev=>ev.date>=today).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,8);
+  },[allEvents,today]);
   const upcomingJobs=useMemo(()=>gardenJobs.filter(j=>j.scheduledDate>=today).sort((a,b)=>a.scheduledDate.localeCompare(b.scheduledDate)).slice(0,5),[gardenJobs,today]);
   const bdList=useMemo(()=>{
     const y=new Date().getFullYear();
@@ -895,7 +972,9 @@ export default function LifeOrg(){
   const allEvents=useMemo(()=>[...events,...birthdayEvents(birthdays)],[events,birthdays]);
   const eventsForWeek=useMemo(()=>{
     const ds=weekDays.map(fmt);
-    return allEvents.filter(ev=>{
+    const windowStart=ds[0], windowEnd=ds[ds.length-1];
+    const expanded=expandEventsForWindow(allEvents, windowStart, windowEnd);
+    return expanded.filter(ev=>{
       if(!ds.some(d=>eventOnDate(ev,d)))return false;
       if(filterMember==="all")return true;
       return ev.members.includes(filterMember)||ev.members.includes("all");
@@ -914,8 +993,22 @@ export default function LifeOrg(){
 
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(null),2400);}
   function openAdd(pre){setForm(blankForm(pre));setEditingId(null);setStep(1);setView("add");}
-  function openEdit(ev){setForm({id:ev.id,type:ev.type,title:ev.title,customTitle:true,members:ev.members,date:ev.date,endDate:ev.endDate||ev.date,allDay:ev.allDay||false,startTime:ev.startTime||"",endTime:ev.endTime||"",notes:ev.notes||"",location:ev.location||"",recurring:ev.recurring||"none",customInterval:ev.customInterval||1,customUnit:ev.customUnit||"months",bdName:"",bdDob:"",bdCategory:"friend",bdMemberId:""});setEditingId(ev.id);setStep(3);setView("add");setExpandedEv(null);}
-  function confirmDelete(id,title){setDeleteConfirm({id,title});}
+  // If ev is a generated recurrence instance, resolve back to the stored original event
+  function resolveOriginal(ev){
+    if(!ev.isRecurrenceInstance) return ev;
+    const originalId = String(ev.id).split("-r")[0];
+    return events.find(e=>String(e.id)===originalId) || ev;
+  }
+  function openEdit(ev){
+    const orig=resolveOriginal(ev);
+    setForm({id:orig.id,type:orig.type,title:orig.title,customTitle:true,members:orig.members,date:orig.date,endDate:orig.endDate||orig.date,allDay:orig.allDay||false,startTime:orig.startTime||"",endTime:orig.endTime||"",notes:orig.notes||"",location:orig.location||"",recurring:orig.recurring||"none",customInterval:orig.customInterval||1,customUnit:orig.customUnit||"months",bdName:"",bdDob:"",bdCategory:"friend",bdMemberId:""});
+    setEditingId(orig.id);setStep(3);setView("add");setExpandedEv(null);
+  }
+  function confirmDelete(id,title,evRef){
+    // If a full event object is passed and it's a recurrence instance, resolve to the original id
+    const realId = evRef?.isRecurrenceInstance ? resolveOriginal(evRef).id : id;
+    setDeleteConfirm({id:realId,title});
+  }
   function doDelete(){
     if(!deleteConfirm)return;
     const id=deleteConfirm.id;

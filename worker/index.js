@@ -1,34 +1,34 @@
 // Life Org — Cloudflare Worker API
 // Handles all data sync for the Life Org family calendar
-
+ 
 const CORS = {
   "Access-Control-Allow-Origin": "*",
   "Access-Control-Allow-Methods": "GET, POST, PUT, DELETE, OPTIONS",
   "Access-Control-Allow-Headers": "Content-Type",
 };
-
+ 
 function json(data, status = 200) {
   return new Response(JSON.stringify(data), {
     status,
     headers: { ...CORS, "Content-Type": "application/json" },
   });
 }
-
+ 
 function error(msg, status = 400) {
   return json({ error: msg }, status);
 }
-
+ 
 export default {
   async fetch(request, env) {
     // Handle CORS preflight
     if (request.method === "OPTIONS") {
       return new Response(null, { headers: CORS });
     }
-
+ 
     const url = new URL(request.url);
     const path = url.pathname;
     const method = request.method;
-
+ 
     try {
       // ── Events ──────────────────────────────────────────────────────────
       if (path === "/api/events") {
@@ -39,7 +39,7 @@ export default {
           const events = results.map(r => JSON.parse(r.data));
           return json(events);
         }
-
+ 
         if (method === "POST") {
           const body = await request.json();
           const events = Array.isArray(body) ? body : [body];
@@ -52,14 +52,14 @@ export default {
           await env.lifeorg.batch(batch);
           return json({ ok: true, count: events.length });
         }
-
+ 
         if (method === "DELETE") {
           const { id } = await request.json();
           await env.lifeorg.prepare("DELETE FROM events WHERE id = ?").bind(String(id)).run();
           return json({ ok: true });
         }
       }
-
+ 
       // ── Birthdays ────────────────────────────────────────────────────────
       if (path === "/api/birthdays") {
         if (method === "GET") {
@@ -68,7 +68,7 @@ export default {
           ).all();
           return json(results.map(r => JSON.parse(r.data)));
         }
-
+ 
         if (method === "POST") {
           const body = await request.json();
           const items = Array.isArray(body) ? body : [body];
@@ -78,14 +78,14 @@ export default {
           await env.lifeorg.batch(items.map(b => stmt.bind(String(b.id), JSON.stringify(b))));
           return json({ ok: true });
         }
-
+ 
         if (method === "DELETE") {
           const { id } = await request.json();
           await env.lifeorg.prepare("DELETE FROM birthdays WHERE id = ?").bind(String(id)).run();
           return json({ ok: true });
         }
       }
-
+ 
       // ── Notes ────────────────────────────────────────────────────────────
       if (path === "/api/notes") {
         if (method === "GET") {
@@ -94,7 +94,7 @@ export default {
           ).all();
           return json(results.map(r => JSON.parse(r.data)));
         }
-
+ 
         if (method === "POST") {
           const body = await request.json();
           const items = Array.isArray(body) ? body : [body];
@@ -104,14 +104,14 @@ export default {
           await env.lifeorg.batch(items.map(n => stmt.bind(String(n.id), JSON.stringify(n))));
           return json({ ok: true });
         }
-
+ 
         if (method === "DELETE") {
           const { id } = await request.json();
           await env.lifeorg.prepare("DELETE FROM notes WHERE id = ?").bind(String(id)).run();
           return json({ ok: true });
         }
       }
-
+ 
       // ── Settings ─────────────────────────────────────────────────────────
       if (path === "/api/settings") {
         if (method === "GET") {
@@ -122,7 +122,7 @@ export default {
           results.forEach(r => { out[r.key] = JSON.parse(r.value); });
           return json(out);
         }
-
+ 
         if (method === "POST") {
           const body = await request.json();
           const stmt = env.lifeorg.prepare(
@@ -135,7 +135,7 @@ export default {
           return json({ ok: true });
         }
       }
-
+ 
       // ── Terms ────────────────────────────────────────────────────────────
       if (path === "/api/terms") {
         if (method === "GET") {
@@ -144,7 +144,7 @@ export default {
           ).all();
           return json(results.map(r => JSON.parse(r.data)));
         }
-
+ 
         if (method === "POST") {
           const body = await request.json();
           const items = Array.isArray(body) ? body : [body];
@@ -157,28 +157,41 @@ export default {
           return json({ ok: true });
         }
       }
-
+ 
       // ── Live iCal feed — for iPhone/calendar subscription ────────────────
       // URL: /api/calendar.ics
       // On iPhone: Settings → Calendar → Accounts → Other → Add Subscribed Calendar
       if (path === "/api/calendar.ics") {
         // Fetch all data from D1
-        const [evRows, bdRows, termRows, settingsRows] = await Promise.all([
+        const [evRows, bdRows, termRows, settingsRows, jobRows] = await Promise.all([
           env.lifeorg.prepare("SELECT data FROM events ORDER BY updated_at DESC").all(),
           env.lifeorg.prepare("SELECT data FROM birthdays").all(),
           env.lifeorg.prepare("SELECT data FROM terms").all(),
           env.lifeorg.prepare("SELECT key, value FROM settings").all(),
+          env.gardenops.prepare(
+            `SELECT j.id, j.date, j.type, j.status, j.notes, c.name, c.first_name, c.surname
+             FROM jobs j LEFT JOIN clients c ON c.id = j.client_id
+             WHERE j.date IS NOT NULL`
+          ).all().catch(() => ({ results: [] })),
         ]);
-
+ 
         const events    = evRows.results.map(r => JSON.parse(r.data));
         const birthdays = bdRows.results.map(r => JSON.parse(r.data));
         const terms     = termRows.results.map(r => JSON.parse(r.data));
-
+        const gardenJobs = jobRows.results.map(r => ({
+          id: r.id,
+          date: r.date,
+          type: r.type,
+          status: r.status,
+          notes: r.notes,
+          client: r.name || [r.first_name, r.surname].filter(Boolean).join(" ") || "Client",
+        }));
+ 
         // Rebuild settings object
         const cfg = {};
         settingsRows.results.forEach(r => { cfg[r.key] = JSON.parse(r.value); });
         const familyName = cfg.familyName || "Life Org";
-
+ 
         // VIC public holidays 2026-2027
         const VIC_HOLIDAYS = {
           "2026-01-01":"New Year's Day","2026-01-26":"Australia Day",
@@ -194,7 +207,7 @@ export default {
           "2027-11-02":"Melbourne Cup Day","2027-12-25":"Christmas Day",
           "2027-12-27":"Boxing Day (substitute)",
         };
-
+ 
         // Helper: format date string for iCal
         function icalDate(ds, time) {
           const c = ds.replace(/-/g, "");
@@ -215,7 +228,7 @@ export default {
           const age = y - parseInt(bd.dob.split("-")[0]);
           return `${bd.name}'s ${age}${ordinal(age)} Birthday 🎂`;
         }
-
+ 
         const lines = [
           "BEGIN:VCALENDAR",
           "VERSION:2.0",
@@ -227,14 +240,14 @@ export default {
           "METHOD:PUBLISH",
           "X-PUBLISHED-TTL:PT1H",
         ];
-
+ 
         // Regular events
         events.forEach(ev => {
           lines.push("BEGIN:VEVENT");
           lines.push(`UID:${ev.id}@lifeorg`);
           lines.push(`SUMMARY:${ev.title}`);
           lines.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g,"").split(".")[0]}Z`);
-
+ 
           if (ev.allDay || !ev.startTime) {
             lines.push(`DTSTART;VALUE=DATE:${ev.date.replace(/-/g, "")}`);
             const endDs = ev.endDate && ev.endDate !== ev.date
@@ -246,13 +259,22 @@ export default {
             const et = ev.endTime || addMins(ev.startTime, 60);
             lines.push(`DTEND:${icalDate(ev.date, et)}`);
           }
-
-          if (ev.notes) lines.push(`DESCRIPTION:${ev.notes.replace(/\n/g, "\\n")}`);
+ 
+          if(ev.notes) lines.push(`DESCRIPTION:${ev.notes.replace(/\n/g, "\\n")}`);
+          if(ev.location) lines.push(`LOCATION:${ev.location.replace(/,/g,"\\,")}`);
           const rmap = { yearly:"YEARLY", weekly:"WEEKLY", monthly:"MONTHLY", daily:"DAILY" };
-          if (rmap[ev.recurring]) lines.push(`RRULE:FREQ=${rmap[ev.recurring]}`);
+          if (ev.recurring === "fortnightly") {
+            lines.push("RRULE:FREQ=WEEKLY;INTERVAL=2");
+          } else if (ev.recurring === "custom" && ev.customInterval) {
+            const fmap = { days:"DAILY", weeks:"WEEKLY", months:"MONTHLY" };
+            const freq = fmap[ev.customUnit] || "MONTHLY";
+            lines.push(`RRULE:FREQ=${freq};INTERVAL=${ev.customInterval}`);
+          } else if (rmap[ev.recurring]) {
+            lines.push(`RRULE:FREQ=${rmap[ev.recurring]}`);
+          }
           lines.push("END:VEVENT");
         });
-
+ 
         // Birthday events — generate this year + next
         const thisYear = new Date().getFullYear();
         birthdays.forEach(bd => {
@@ -271,7 +293,7 @@ export default {
             lines.push("END:VEVENT");
           });
         });
-
+ 
         // School terms
         terms.forEach((term, i) => {
           if (!term.start || !term.end) return;
@@ -283,7 +305,7 @@ export default {
           lines.push(`DTEND;VALUE=DATE:${addDays(term.end, 1).replace(/-/g, "")}`);
           lines.push("END:VEVENT");
         });
-
+ 
         // VIC public holidays
         Object.entries(VIC_HOLIDAYS).forEach(([ds, name]) => {
           lines.push("BEGIN:VEVENT");
@@ -294,10 +316,22 @@ export default {
           lines.push(`DTEND;VALUE=DATE:${addDays(ds, 1).replace(/-/g, "")}`);
           lines.push("END:VEVENT");
         });
-
+ 
+        // Garden Ops jobs — live from gardenops-db
+        gardenJobs.forEach(job => {
+          lines.push("BEGIN:VEVENT");
+          lines.push(`UID:gj-${job.id}@lifeorg`);
+          lines.push(`SUMMARY:🌿 ${job.type || "Garden Job"} — ${job.client}`);
+          lines.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g,"").split(".")[0]}Z`);
+          lines.push(`DTSTART;VALUE=DATE:${job.date.replace(/-/g, "")}`);
+          lines.push(`DTEND;VALUE=DATE:${addDays(job.date, 1).replace(/-/g, "")}`);
+          if (job.notes) lines.push(`DESCRIPTION:${job.notes.replace(/\n/g, "\\n")}`);
+          lines.push("END:VEVENT");
+        });
+ 
         lines.push("END:VCALENDAR");
         const ical = lines.join("\r\n");
-
+ 
         return new Response(ical, {
           headers: {
             "Content-Type": "text/calendar; charset=utf-8",
@@ -307,17 +341,52 @@ export default {
           },
         });
       }
-
+ 
+      // ── Garden Ops jobs — read-only, live from gardenops-db ──────────────
+      if (path === "/api/garden-jobs") {
+        if (method === "GET") {
+          const { results } = await env.gardenops.prepare(
+            `SELECT j.id, j.date, j.type, j.status, j.notes, j.hours, j.price,
+                    j.recurrence, j.recurrence_end,
+                    c.name, c.first_name, c.surname, c.address
+             FROM jobs j
+             LEFT JOIN clients c ON c.id = j.client_id
+             WHERE j.date IS NOT NULL
+             ORDER BY j.date ASC`
+          ).all();
+ 
+          const jobs = results.map(r => {
+            const clientName = r.name
+              || [r.first_name, r.surname].filter(Boolean).join(" ")
+              || "Unknown client";
+            return {
+              id: `gj-${r.id}`,
+              title: r.type || "Garden Job",
+              client: clientName,
+              address: r.address || "",
+              scheduledDate: r.date,
+              status: (r.status || "scheduled").toLowerCase(),
+              notes: r.notes || "",
+              hours: r.hours || 0,
+              price: r.price || 0,
+              recurrence: r.recurrence || null,
+            };
+          });
+          return json(jobs);
+        }
+      }
+ 
       // ── Health check ─────────────────────────────────────────────────────
       if (path === "/api/health") {
         return json({ ok: true, app: "Life Org API", ts: Date.now() });
       }
-
+ 
       return error("Not found", 404);
-
+ 
     } catch (err) {
       console.error(err);
       return error(`Server error: ${err.message}`, 500);
     }
   },
 };
+ 
