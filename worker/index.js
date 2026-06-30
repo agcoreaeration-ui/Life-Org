@@ -162,6 +162,7 @@ export default {
       // URL: /api/calendar.ics
       // On iPhone: Settings → Calendar → Accounts → Other → Add Subscribed Calendar
       if (path === "/api/calendar.ics") {
+       try {
         // Fetch all data from D1
         const [evRows, bdRows, termRows, settingsRows, jobRows] = await Promise.all([
           env.lifeorg.prepare("SELECT data FROM events ORDER BY updated_at DESC").all(),
@@ -209,12 +210,16 @@ export default {
         };
  
         // Helper: format date string for iCal
+        function isValidDateStr(ds) {
+          return typeof ds === "string" && /^\d{4}-\d{2}-\d{2}$/.test(ds) && !isNaN(new Date(ds).getTime());
+        }
         function icalDate(ds, time) {
           const c = ds.replace(/-/g, "");
           return time ? `${c}T${time.replace(/:/g, "")}00` : c;
         }
         function addDays(ds, n) {
           const d = new Date(ds);
+          if (isNaN(d.getTime())) return ds; // bail out safely rather than throwing
           d.setDate(d.getDate() + n);
           return d.toISOString().slice(0, 10);
         }
@@ -241,18 +246,18 @@ export default {
           "X-PUBLISHED-TTL:PT1H",
         ];
  
-        // Regular events
+        // Regular events — skip any with missing/invalid dates rather than crashing the whole feed
         events.forEach(ev => {
+          if (!isValidDateStr(ev.date)) return;
           lines.push("BEGIN:VEVENT");
           lines.push(`UID:${ev.id}@lifeorg`);
-          lines.push(`SUMMARY:${ev.title}`);
+          lines.push(`SUMMARY:${ev.title || "Untitled event"}`);
           lines.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g,"").split(".")[0]}Z`);
  
           if (ev.allDay || !ev.startTime) {
             lines.push(`DTSTART;VALUE=DATE:${ev.date.replace(/-/g, "")}`);
-            const endDs = ev.endDate && ev.endDate !== ev.date
-              ? addDays(ev.endDate, 1)
-              : addDays(ev.date, 1);
+            const validEndDate = isValidDateStr(ev.endDate) ? ev.endDate : ev.date;
+            const endDs = validEndDate !== ev.date ? addDays(validEndDate, 1) : addDays(ev.date, 1);
             lines.push(`DTEND;VALUE=DATE:${endDs.replace(/-/g, "")}`);
           } else {
             lines.push(`DTSTART:${icalDate(ev.date, ev.startTime)}`);
@@ -296,7 +301,7 @@ export default {
  
         // School terms
         terms.forEach((term, i) => {
-          if (!term.start || !term.end) return;
+          if (!isValidDateStr(term.start) || !isValidDateStr(term.end)) return;
           lines.push("BEGIN:VEVENT");
           lines.push(`UID:term-${i}@lifeorg`);
           lines.push(`SUMMARY:📚 ${term.label}`);
@@ -317,8 +322,10 @@ export default {
           lines.push("END:VEVENT");
         });
  
-        // Garden Ops jobs — live from gardenops-db
+        // Garden Ops jobs — live from gardenops-db. Skip any without a valid scheduled date
+        // (e.g. jobs that are "approved" but not yet booked in have an empty date).
         gardenJobs.forEach(job => {
+          if (!isValidDateStr(job.date)) return;
           lines.push("BEGIN:VEVENT");
           lines.push(`UID:gj-${job.id}@lifeorg`);
           lines.push(`SUMMARY:🌿 ${job.type || "Garden Job"} — ${job.client}`);
@@ -340,6 +347,20 @@ export default {
             "Access-Control-Allow-Origin": "*",
           },
         });
+       } catch (calErr) {
+         // Never return JSON for a calendar request — Apple Calendar can't parse it
+         // and will just show a stale/broken subscription. Return a minimal valid
+         // (empty) calendar instead so the subscription itself stays healthy.
+         console.error("calendar.ics generation failed:", calErr);
+         const fallback = [
+           "BEGIN:VCALENDAR","VERSION:2.0","PRODID:-//LifeOrg//Error//EN",
+           "X-WR-CALNAME:Life Org (sync error — check Worker logs)",
+           "CALSCALE:GREGORIAN","METHOD:PUBLISH","END:VCALENDAR",
+         ].join("\r\n");
+         return new Response(fallback, {
+           headers: { "Content-Type": "text/calendar; charset=utf-8", "Access-Control-Allow-Origin": "*" },
+         });
+       }
       }
  
       // ── Garden Ops jobs — read-only, live from gardenops-db ──────────────
