@@ -163,16 +163,29 @@ export default {
       // On iPhone: Settings → Calendar → Accounts → Other → Add Subscribed Calendar
       if (path === "/api/calendar.ics") {
         // Fetch all data from D1
-        const [evRows, bdRows, termRows, settingsRows] = await Promise.all([
+        const [evRows, bdRows, termRows, settingsRows, jobRows] = await Promise.all([
           env.lifeorg.prepare("SELECT data FROM events ORDER BY updated_at DESC").all(),
           env.lifeorg.prepare("SELECT data FROM birthdays").all(),
           env.lifeorg.prepare("SELECT data FROM terms").all(),
           env.lifeorg.prepare("SELECT key, value FROM settings").all(),
+          env.gardenops.prepare(
+            `SELECT j.id, j.date, j.type, j.status, j.notes, c.name, c.first_name, c.surname
+             FROM jobs j LEFT JOIN clients c ON c.id = j.client_id
+             WHERE j.date IS NOT NULL`
+          ).all().catch(() => ({ results: [] })),
         ]);
 
         const events    = evRows.results.map(r => JSON.parse(r.data));
         const birthdays = bdRows.results.map(r => JSON.parse(r.data));
         const terms     = termRows.results.map(r => JSON.parse(r.data));
+        const gardenJobs = jobRows.results.map(r => ({
+          id: r.id,
+          date: r.date,
+          type: r.type,
+          status: r.status,
+          notes: r.notes,
+          client: r.name || [r.first_name, r.surname].filter(Boolean).join(" ") || "Client",
+        }));
 
         // Rebuild settings object
         const cfg = {};
@@ -247,9 +260,18 @@ export default {
             lines.push(`DTEND:${icalDate(ev.date, et)}`);
           }
 
-          if (ev.notes) lines.push(`DESCRIPTION:${ev.notes.replace(/\n/g, "\\n")}`);
+          if(ev.notes) lines.push(`DESCRIPTION:${ev.notes.replace(/\n/g, "\\n")}`);
+          if(ev.location) lines.push(`LOCATION:${ev.location.replace(/,/g,"\\,")}`);
           const rmap = { yearly:"YEARLY", weekly:"WEEKLY", monthly:"MONTHLY", daily:"DAILY" };
-          if (rmap[ev.recurring]) lines.push(`RRULE:FREQ=${rmap[ev.recurring]}`);
+          if (ev.recurring === "fortnightly") {
+            lines.push("RRULE:FREQ=WEEKLY;INTERVAL=2");
+          } else if (ev.recurring === "custom" && ev.customInterval) {
+            const fmap = { days:"DAILY", weeks:"WEEKLY", months:"MONTHLY" };
+            const freq = fmap[ev.customUnit] || "MONTHLY";
+            lines.push(`RRULE:FREQ=${freq};INTERVAL=${ev.customInterval}`);
+          } else if (rmap[ev.recurring]) {
+            lines.push(`RRULE:FREQ=${rmap[ev.recurring]}`);
+          }
           lines.push("END:VEVENT");
         });
 
@@ -295,6 +317,18 @@ export default {
           lines.push("END:VEVENT");
         });
 
+        // Garden Ops jobs — live from gardenops-db
+        gardenJobs.forEach(job => {
+          lines.push("BEGIN:VEVENT");
+          lines.push(`UID:gj-${job.id}@lifeorg`);
+          lines.push(`SUMMARY:🌿 ${job.type || "Garden Job"} — ${job.client}`);
+          lines.push(`DTSTAMP:${new Date().toISOString().replace(/[-:]/g,"").split(".")[0]}Z`);
+          lines.push(`DTSTART;VALUE=DATE:${job.date.replace(/-/g, "")}`);
+          lines.push(`DTEND;VALUE=DATE:${addDays(job.date, 1).replace(/-/g, "")}`);
+          if (job.notes) lines.push(`DESCRIPTION:${job.notes.replace(/\n/g, "\\n")}`);
+          lines.push("END:VEVENT");
+        });
+
         lines.push("END:VCALENDAR");
         const ical = lines.join("\r\n");
 
@@ -306,6 +340,40 @@ export default {
             "Access-Control-Allow-Origin": "*",
           },
         });
+      }
+
+      // ── Garden Ops jobs — read-only, live from gardenops-db ──────────────
+      if (path === "/api/garden-jobs") {
+        if (method === "GET") {
+          const { results } = await env.gardenops.prepare(
+            `SELECT j.id, j.date, j.type, j.status, j.notes, j.hours, j.price,
+                    j.recurrence, j.recurrence_end,
+                    c.name, c.first_name, c.surname, c.address
+             FROM jobs j
+             LEFT JOIN clients c ON c.id = j.client_id
+             WHERE j.date IS NOT NULL
+             ORDER BY j.date ASC`
+          ).all();
+
+          const jobs = results.map(r => {
+            const clientName = r.name
+              || [r.first_name, r.surname].filter(Boolean).join(" ")
+              || "Unknown client";
+            return {
+              id: `gj-${r.id}`,
+              title: r.type || "Garden Job",
+              client: clientName,
+              address: r.address || "",
+              scheduledDate: r.date,
+              status: (r.status || "scheduled").toLowerCase(),
+              notes: r.notes || "",
+              hours: r.hours || 0,
+              price: r.price || 0,
+              recurrence: r.recurrence || null,
+            };
+          });
+          return json(jobs);
+        }
       }
 
       // ── Health check ─────────────────────────────────────────────────────

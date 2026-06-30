@@ -10,6 +10,7 @@ const SK = {
   birthdays: "lifeorg:birthdays",
   settings:  "lifeorg:settings",
   terms:     "lifeorg:terms",
+  petInfo:   "lifeorg:petInfo",
 };
 
 const DEFAULT_SETTINGS = {
@@ -54,11 +55,13 @@ const PRESET_TASKS = {
 };
 
 const RECUR_OPTIONS = [
-  { id:"none",    label:"Once" },
-  { id:"daily",   label:"Daily" },
-  { id:"weekly",  label:"Weekly" },
-  { id:"monthly", label:"Monthly" },
-  { id:"yearly",  label:"Yearly" },
+  { id:"none",       label:"Once" },
+  { id:"daily",      label:"Daily" },
+  { id:"weekly",     label:"Weekly" },
+  { id:"fortnightly",label:"Fortnightly" },
+  { id:"monthly",    label:"Monthly" },
+  { id:"yearly",     label:"Yearly" },
+  { id:"custom",     label:"Custom" },
 ];
 
 const TERM_COLORS      = ["#dbeafe","#dcfce7","#fef9c3","#fce7f3"];
@@ -158,7 +161,7 @@ const SEED_NOTES=[
   {id:"n2",text:"Myles permission slip due Friday 📝",createdAt:today,pinned:false},
   {id:"n3",text:"Marley's flea treatment due next month 💊",createdAt:today,pinned:false},
 ];
-const blankForm=(pre)=>({id:null,type:null,title:"",customTitle:false,members:[],date:pre||today,endDate:pre||today,allDay:false,startTime:"",endTime:"",notes:"",recurring:"none",bdName:"",bdDob:"",bdCategory:"friend",bdMemberId:""});
+const blankForm=(pre)=>({id:null,type:null,title:"",customTitle:false,members:[],date:pre||today,endDate:pre||today,allDay:false,startTime:"",endTime:"",notes:"",location:"",recurring:"none",customInterval:1,customUnit:"months",bdName:"",bdDob:"",bdCategory:"friend",bdMemberId:""});
 
 const s_lbl={fontSize:12,fontWeight:700,color:"#6b7280",letterSpacing:0.5,textTransform:"uppercase",display:"block",marginBottom:8};
 const s_inp={width:"100%",border:"1.5px solid #e5e7eb",borderRadius:10,padding:"10px 12px",fontSize:14,outline:"none",boxSizing:"border-box",background:"#fff"};
@@ -196,9 +199,10 @@ function EventPill({ev,dateStr,members,expandedEv,setExpandedEv,openEdit,confirm
       </div>
       {exp&&(
         <div style={{padding:"0 12px 12px",borderTop:"1px solid #f3f4f6"}}>
+          {ev.location&&<p style={{fontSize:12,color:"#6b7280",margin:"8px 0 4px",display:"flex",alignItems:"center",gap:5}}>📍 {ev.location}</p>}
           {ev.notes&&<p style={{fontSize:12,color:"#6b7280",margin:"8px 0 4px"}}>{ev.notes}</p>}
           {isMulti&&<p style={{fontSize:11,color:"#9ca3af",margin:"4px 0"}}>{parseDate(ev.date).toLocaleDateString("en-AU",{day:"numeric",month:"short"})} → {parseDate(ev.endDate).toLocaleDateString("en-AU",{day:"numeric",month:"short"})}</p>}
-          {ev.recurring!=="none"&&<p style={{fontSize:11,color:"#9ca3af",margin:"4px 0"}}>🔁 {RECUR_OPTIONS.find(r=>r.id===ev.recurring)?.label}</p>}
+          {ev.recurring!=="none"&&<p style={{fontSize:11,color:"#9ca3af",margin:"4px 0"}}>🔁 {ev.recurring==="custom"?`Every ${ev.customInterval||1} ${ev.customUnit||"months"}`:RECUR_OPTIONS.find(r=>r.id===ev.recurring)?.label}</p>}
           {!isBd&&<div style={{display:"flex",gap:8,marginTop:8}}>
             <button onClick={e=>{e.stopPropagation();openEdit(ev);}} style={{background:"#f3f4ff",border:"none",borderRadius:8,color:APP_COLOR,fontSize:12,fontWeight:700,padding:"6px 14px",cursor:"pointer"}}>✏️ Edit</button>
             <button onClick={e=>{e.stopPropagation();confirmDelete(ev.id,ev.title);}} style={{background:"#fef2f2",border:"none",borderRadius:8,color:"#ef4444",fontSize:12,fontWeight:700,padding:"6px 14px",cursor:"pointer"}}>🗑 Delete</button>
@@ -308,9 +312,8 @@ function NotesView({notes,setNotes,onDeleteNote}){
   );
 }
 
-function MarleyView({allEvents,petMember,setView,setForm}){
+function MarleyView({allEvents,petMember,setView,setForm,petInfo,setPetInfo}){
   const pet=petMember||{name:"Marley",emoji:"🐾",color:"#a16207",id:"marley"};
-  const [info,setInfo]=useState({vet:"",groomer:"",nextVac:"",nextFlea:""});
   const petEvs=allEvents.filter(ev=>ev.members.includes(pet.id)&&ev.date>=today).sort((a,b)=>a.date.localeCompare(b.date)).slice(0,10);
   return(
     <div style={{padding:"12px 20px 20px"}}>
@@ -323,7 +326,7 @@ function MarleyView({allEvents,petMember,setView,setForm}){
         {[{key:"vet",label:"Vet clinic",ph:"e.g. Paws Vet Clinic"},{key:"groomer",label:"Groomer",ph:"e.g. Doggy Styles"},{key:"nextVac",label:"Next vaccination",ph:"YYYY-MM-DD"},{key:"nextFlea",label:"Next flea treatment",ph:"YYYY-MM-DD"}].map(f=>(
           <div key={f.key} style={{marginBottom:10}}>
             <div style={{fontSize:11,fontWeight:700,color:"#6b7280",marginBottom:3,textTransform:"uppercase",letterSpacing:0.4}}>{f.label}</div>
-            <input value={info[f.key]} onChange={e=>setInfo(p=>({...p,[f.key]:e.target.value}))} placeholder={f.ph} style={{width:"100%",border:"1.5px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
+            <input value={petInfo[f.key]||""} onChange={e=>setPetInfo(p=>({...p,[f.key]:e.target.value}))} placeholder={f.ph} style={{width:"100%",border:"1.5px solid #e5e7eb",borderRadius:8,padding:"8px 12px",fontSize:13,outline:"none",boxSizing:"border-box"}}/>
           </div>
         ))}
       </div>
@@ -646,6 +649,7 @@ function WeekGrid({weekDays,eventsByDay,gardenByDay,filterMember,termForDay,term
                         <span style={{flex:1,overflow:"hidden",textOverflow:"ellipsis",whiteSpace:"nowrap"}}>{ev.title}</span>
                       </div>
                       {!ev.allDay&&ev.startTime&&<div style={{color:"#6b7280",fontSize:10}}>{fmtTime(ev.startTime)}</div>}
+                      {exp&&ev.location&&<div style={{color:"#6b7280",fontSize:10,marginTop:2}}>📍 {ev.location}</div>}
                       <div style={{display:"flex",marginTop:2}}>{evMs.slice(0,3).map(m=><span key={m.id} style={{fontSize:10,marginRight:-2}}>{m.emoji}</span>)}</div>
                       {exp&&!isBd&&(
                         <div style={{marginTop:6,paddingTop:6,borderTop:"1px solid #f3f4f6",display:"flex",gap:4}}>
@@ -787,6 +791,7 @@ export default function LifeOrg(){
   const [gardenJobs,   setGardenJobs]   = useState([]);
   const [settings,     setSettings]     = useState(DEFAULT_SETTINGS);
   const [terms,        setTerms]        = useState(SEED_TERMS);
+  const [petInfo,      setPetInfo]      = useState({vet:"",groomer:"",nextVac:"",nextFlea:""});
   const [view,         setView]         = useState("splash");
   const [step,         setStep]         = useState(1);
   const [form,         setForm]         = useState(blankForm());
@@ -817,18 +822,21 @@ export default function LifeOrg(){
   useEffect(()=>{
     (async()=>{
       try{
-        const [evs,bds,nts,cfg,tms]=await Promise.all([
+        const [evs,bds,nts,cfg,tms,gjs]=await Promise.all([
           apiFetch("/api/events").catch(()=>null),
           apiFetch("/api/birthdays").catch(()=>null),
           apiFetch("/api/notes").catch(()=>null),
           apiFetch("/api/settings").catch(()=>null),
           apiFetch("/api/terms").catch(()=>null),
+          apiFetch("/api/garden-jobs").catch(()=>null),
         ]);
         if(evs?.length)setEvents(evs);
         if(bds?.length)setBirthdays(bds);
         if(nts?.length)setNotes(nts);
         if(cfg?.familyName)setSettings(cfg);
+        if(cfg?.petInfo)setPetInfo(cfg.petInfo);
         if(tms?.length)setTerms(tms);
+        if(gjs)setGardenJobs(gjs);
       }catch(e){
         console.warn("API load failed, falling back to localStorage",e);
         try{const r=localStorage.getItem(SK.events);    if(r)setEvents(JSON.parse(r));}catch(_){}
@@ -836,6 +844,7 @@ export default function LifeOrg(){
         try{const r=localStorage.getItem(SK.birthdays); if(r)setBirthdays(JSON.parse(r));}catch(_){}
         try{const r=localStorage.getItem(SK.settings);  if(r)setSettings(JSON.parse(r));}catch(_){}
         try{const r=localStorage.getItem(SK.terms);     if(r)setTerms(JSON.parse(r));}catch(_){}
+        try{const r=localStorage.getItem(SK.petInfo);   if(r)setPetInfo(JSON.parse(r));}catch(_){}
       }
       setLoaded(true);
     })();
@@ -862,6 +871,11 @@ export default function LifeOrg(){
     localStorage.setItem(SK.settings,JSON.stringify(settings));
     apiFetch("/api/settings","POST",settings).catch(()=>{});
   },[settings,loaded]);
+  useEffect(()=>{
+    if(!loaded)return;
+    localStorage.setItem(SK.petInfo,JSON.stringify(petInfo));
+    apiFetch("/api/settings","POST",{petInfo}).catch(()=>{});
+  },[petInfo,loaded]);
   useEffect(()=>{
     if(!loaded)return;
     localStorage.setItem(SK.terms,JSON.stringify(terms));
@@ -900,7 +914,7 @@ export default function LifeOrg(){
 
   function showToast(msg){setToast(msg);setTimeout(()=>setToast(null),2400);}
   function openAdd(pre){setForm(blankForm(pre));setEditingId(null);setStep(1);setView("add");}
-  function openEdit(ev){setForm({id:ev.id,type:ev.type,title:ev.title,customTitle:true,members:ev.members,date:ev.date,endDate:ev.endDate||ev.date,allDay:ev.allDay||false,startTime:ev.startTime||"",endTime:ev.endTime||"",notes:ev.notes||"",recurring:ev.recurring||"none",bdName:"",bdDob:"",bdCategory:"friend",bdMemberId:""});setEditingId(ev.id);setStep(3);setView("add");setExpandedEv(null);}
+  function openEdit(ev){setForm({id:ev.id,type:ev.type,title:ev.title,customTitle:true,members:ev.members,date:ev.date,endDate:ev.endDate||ev.date,allDay:ev.allDay||false,startTime:ev.startTime||"",endTime:ev.endTime||"",notes:ev.notes||"",location:ev.location||"",recurring:ev.recurring||"none",customInterval:ev.customInterval||1,customUnit:ev.customUnit||"months",bdName:"",bdDob:"",bdCategory:"friend",bdMemberId:""});setEditingId(ev.id);setStep(3);setView("add");setExpandedEv(null);}
   function confirmDelete(id,title){setDeleteConfirm({id,title});}
   function doDelete(){
     if(!deleteConfirm)return;
@@ -962,17 +976,20 @@ export default function LifeOrg(){
     if(syncing)return;
     setSyncing(true);
     try{
-      const [evs,bds,nts,cfg,tms]=await Promise.all([
+      const [evs,bds,nts,cfg,tms,gjs]=await Promise.all([
         apiFetch("/api/events").catch(()=>null),
         apiFetch("/api/birthdays").catch(()=>null),
         apiFetch("/api/notes").catch(()=>null),
         apiFetch("/api/settings").catch(()=>null),
         apiFetch("/api/terms").catch(()=>null),
+        apiFetch("/api/garden-jobs").catch(()=>null),
       ]);
       if(evs)setEvents(evs);
       if(bds)setBirthdays(bds);
       if(nts)setNotes(nts);
       if(cfg?.familyName)setSettings(cfg);
+      if(cfg?.petInfo)setPetInfo(cfg.petInfo);
+      if(gjs)setGardenJobs(gjs);
       if(tms?.length)setTerms(tms);
     }catch(_){}
     setSyncing(false);
@@ -1107,7 +1124,7 @@ export default function LifeOrg(){
 
           {/* Other views */}
           {view==="notes"     &&<div style={{flex:1,overflowY:"auto"}}><NotesView notes={notes} setNotes={setNotes} onDeleteNote={deleteNote}/></div>}
-          {view==="marley"    &&<div style={{flex:1,overflowY:"auto"}}><MarleyView allEvents={allEvents} petMember={petMember} setView={setView} setForm={setForm}/></div>}
+          {view==="marley"    &&<div style={{flex:1,overflowY:"auto"}}><MarleyView allEvents={allEvents} petMember={petMember} setView={setView} setForm={setForm} petInfo={petInfo} setPetInfo={setPetInfo}/></div>}
           {view==="birthdays" &&<div style={{flex:1,overflowY:"auto"}}><BirthdaysView birthdays={birthdays} setBirthdays={setBirthdays} upcomingBds={upcomingBds} setBdForm={setBdForm} setShowBdForm={setShowBdForm} onDeleteBirthday={deleteBirthday}/></div>}
           {view==="settings"  &&<div style={{flex:1,overflowY:"auto"}}><SettingsView settings={settings} setSettings={setSettings} terms={terms} setTerms={setTerms} onExport={handleExport} showToast={showToast}/></div>}
 
@@ -1168,7 +1185,22 @@ export default function LifeOrg(){
                           <div style={{marginBottom:14,display:"flex",alignItems:"center",justifyContent:"space-between",background:"#fff",borderRadius:10,padding:"10px 14px",boxShadow:"0 1px 3px rgba(0,0,0,0.06)"}}><div><div style={{fontSize:13,fontWeight:700,color:"#1f1535"}}>All day</div><div style={{fontSize:10,color:"#9ca3af"}}>No time needed</div></div><button onClick={()=>setForm(f=>({...f,allDay:!f.allDay,startTime:"",endTime:""}))} style={{width:40,height:24,borderRadius:12,border:"none",cursor:"pointer",background:form.allDay?APP_COLOR:"#e5e7eb",position:"relative",flexShrink:0}}><span style={{position:"absolute",top:3,left:form.allDay?18:3,width:18,height:18,borderRadius:"50%",background:"#fff",transition:"left 0.2s",boxShadow:"0 1px 3px rgba(0,0,0,0.2)"}}/></button></div>
                           <div style={{marginBottom:14}}><label style={s_lbl}>Date</label><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><div><div style={{fontSize:10,color:"#9ca3af",marginBottom:3,fontWeight:600}}>Start</div><input type="date" value={form.date} onChange={e=>setForm(f=>({...f,date:e.target.value,endDate:e.target.value>f.endDate?e.target.value:f.endDate}))} style={s_inp}/></div><div><div style={{fontSize:10,color:"#9ca3af",marginBottom:3,fontWeight:600}}>End</div><input type="date" value={form.endDate} min={form.date} onChange={e=>setForm(f=>({...f,endDate:e.target.value}))} style={s_inp}/></div></div>{form.date!==form.endDate&&<div style={{fontSize:11,color:APP_COLOR,fontWeight:600,marginTop:4}}>📆 {Math.round((parseDate(form.endDate)-parseDate(form.date))/86400000)+1} days</div>}</div>
                           {!form.allDay&&<div style={{marginBottom:14}}><label style={s_lbl}>Time</label><div style={{display:"grid",gridTemplateColumns:"1fr 1fr",gap:8}}><div><div style={{fontSize:10,color:"#9ca3af",marginBottom:3,fontWeight:600}}>Start</div><input type="time" value={form.startTime} onChange={e=>setForm(f=>({...f,startTime:e.target.value}))} style={s_inp}/></div><div><div style={{fontSize:10,color:"#9ca3af",marginBottom:3,fontWeight:600}}>End</div><input type="time" value={form.endTime} onChange={e=>setForm(f=>({...f,endTime:e.target.value}))} style={s_inp}/></div></div></div>}
-                          <div style={{marginBottom:14}}><label style={s_lbl}>Repeat</label><div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{RECUR_OPTIONS.map(r=><button key={r.id} onClick={()=>setForm(f=>({...f,recurring:r.id}))} style={{background:form.recurring===r.id?APP_COLOR:"#fff",color:form.recurring===r.id?"#fff":"#374151",border:`1.5px solid ${form.recurring===r.id?APP_COLOR:"#e5e7eb"}`,borderRadius:20,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>{r.label}</button>)}</div></div>
+                          <div style={{marginBottom:14}}><label style={s_lbl}>Location <span style={{fontWeight:400,fontSize:10,textTransform:"none"}}>(optional)</span></label><input value={form.location||""} onChange={e=>setForm(f=>({...f,location:e.target.value}))} placeholder="e.g. Geelong Football Club" style={s_inp}/></div>
+                          <div style={{marginBottom:14}}>
+                            <label style={s_lbl}>Repeat</label>
+                            <div style={{display:"flex",gap:6,flexWrap:"wrap"}}>{RECUR_OPTIONS.map(r=><button key={r.id} onClick={()=>setForm(f=>({...f,recurring:r.id}))} style={{background:form.recurring===r.id?APP_COLOR:"#fff",color:form.recurring===r.id?"#fff":"#374151",border:`1.5px solid ${form.recurring===r.id?APP_COLOR:"#e5e7eb"}`,borderRadius:20,padding:"5px 12px",cursor:"pointer",fontSize:12,fontWeight:600}}>{r.label}</button>)}</div>
+                            {form.recurring==="custom"&&(
+                              <div style={{display:"flex",alignItems:"center",gap:7,marginTop:8,background:"#f9fafb",borderRadius:10,padding:"9px 11px"}}>
+                                <span style={{fontSize:12,color:"#374151",fontWeight:600}}>Every</span>
+                                <input type="number" min="1" value={form.customInterval||1} onChange={e=>setForm(f=>({...f,customInterval:e.target.value}))} style={{width:48,border:"1.5px solid #e5e7eb",borderRadius:7,padding:"5px 6px",fontSize:12,textAlign:"center",outline:"none"}}/>
+                                <select value={form.customUnit||"months"} onChange={e=>setForm(f=>({...f,customUnit:e.target.value}))} style={{border:"1.5px solid #e5e7eb",borderRadius:7,padding:"5px 8px",fontSize:12,outline:"none",background:"#fff"}}>
+                                  <option value="days">day(s)</option>
+                                  <option value="weeks">week(s)</option>
+                                  <option value="months">month(s)</option>
+                                </select>
+                              </div>
+                            )}
+                          </div>
                           <div style={{marginBottom:20}}><label style={s_lbl}>Notes (optional)</label><textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Any extra details..." rows={2} style={{...s_inp,resize:"none",fontFamily:"inherit"}}/></div>
                           <button onClick={submitEvent} disabled={!form.title||!form.members.length||!form.date} style={{width:"100%",background:(!form.title||!form.members.length||!form.date)?"#e5e7eb":"linear-gradient(135deg,#4f46e5,#7c3aed)",color:(!form.title||!form.members.length||!form.date)?"#9ca3af":"#fff",border:"none",borderRadius:12,padding:"14px",fontSize:15,fontWeight:700,cursor:"pointer"}}>{isEdit?"Save Changes":"Add to Calendar"}</button>
                         </>
@@ -1394,8 +1426,23 @@ export default function LifeOrg(){
                     </div>
                   )}
                   <div style={{marginBottom:16}}>
+                    <label style={s_lbl}>Location <span style={{fontWeight:400,fontSize:11,textTransform:"none"}}>(optional)</span></label>
+                    <input value={form.location||""} onChange={e=>setForm(f=>({...f,location:e.target.value}))} placeholder="e.g. Geelong Football Club" style={s_inp}/>
+                  </div>
+                  <div style={{marginBottom:16}}>
                     <label style={s_lbl}>Repeat</label>
                     <div style={{display:"flex",gap:8,flexWrap:"wrap"}}>{RECUR_OPTIONS.map(r=><button key={r.id} onClick={()=>setForm(f=>({...f,recurring:r.id}))} style={{background:form.recurring===r.id?APP_COLOR:"#fff",color:form.recurring===r.id?"#fff":"#374151",border:`1.5px solid ${form.recurring===r.id?APP_COLOR:"#e5e7eb"}`,borderRadius:20,padding:"6px 13px",cursor:"pointer",fontSize:12,fontWeight:600}}>{r.label}</button>)}</div>
+                    {form.recurring==="custom"&&(
+                      <div style={{display:"flex",alignItems:"center",gap:8,marginTop:10,background:"#f9fafb",borderRadius:10,padding:"10px 12px"}}>
+                        <span style={{fontSize:13,color:"#374151",fontWeight:600}}>Every</span>
+                        <input type="number" min="1" value={form.customInterval||1} onChange={e=>setForm(f=>({...f,customInterval:e.target.value}))} style={{width:56,border:"1.5px solid #e5e7eb",borderRadius:8,padding:"6px 8px",fontSize:13,textAlign:"center",outline:"none"}}/>
+                        <select value={form.customUnit||"months"} onChange={e=>setForm(f=>({...f,customUnit:e.target.value}))} style={{border:"1.5px solid #e5e7eb",borderRadius:8,padding:"6px 10px",fontSize:13,outline:"none",background:"#fff"}}>
+                          <option value="days">day(s)</option>
+                          <option value="weeks">week(s)</option>
+                          <option value="months">month(s)</option>
+                        </select>
+                      </div>
+                    )}
                   </div>
                   <div style={{marginBottom:24}}><label style={s_lbl}>Notes (optional)</label><textarea value={form.notes} onChange={e=>setForm(f=>({...f,notes:e.target.value}))} placeholder="Any extra details..." rows={2} style={{...s_inp,resize:"none",fontFamily:"inherit"}}/></div>
                   <button onClick={submitEvent} disabled={!form.title||!form.members.length||!form.date} style={{width:"100%",background:(!form.title||!form.members.length||!form.date)?"#e5e7eb":"linear-gradient(135deg,#4f46e5,#7c3aed)",color:(!form.title||!form.members.length||!form.date)?"#9ca3af":"#fff",border:"none",borderRadius:14,padding:"16px",fontSize:16,fontWeight:700,cursor:"pointer"}}>{isEdit?"Save Changes":"Add to Calendar"}</button>
@@ -1407,7 +1454,7 @@ export default function LifeOrg(){
       )}
 
       {view==="notes"     &&<NotesView notes={notes} setNotes={setNotes} onDeleteNote={deleteNote}/>}
-      {view==="marley"    &&<MarleyView allEvents={allEvents} petMember={petMember} setView={setView} setForm={setForm}/>}
+      {view==="marley"    &&<MarleyView allEvents={allEvents} petMember={petMember} setView={setView} setForm={setForm} petInfo={petInfo} setPetInfo={setPetInfo}/>}
       {view==="birthdays" &&<BirthdaysView birthdays={birthdays} setBirthdays={setBirthdays} upcomingBds={upcomingBds} setBdForm={setBdForm} setShowBdForm={setShowBdForm} onDeleteBirthday={deleteBirthday}/>}
       {view==="settings"  &&<SettingsView settings={settings} setSettings={setSettings} terms={terms} setTerms={setTerms} onExport={handleExport} showToast={showToast}/>}
 

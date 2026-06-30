@@ -7,3 +7,8 @@ workers_dev = true
 binding = "lifeorg"
 database_name = "lifeorg"
 database_id = "95adeb86-e3fd-4f6f-bff0-9cb2a1b9077c"
+
+[[d1_databases]]
+binding = "gardenops"
+database_name = "gardenops-db"
+database_id = "08dfa509-66cd-4608-9d32-0ec488d7e77d"
